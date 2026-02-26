@@ -1,0 +1,19 @@
+com.onecorner.system/
+├── data/
+│   ├── model/          # Data classes
+│   ├── repository/     # Firebase repositories
+│   └── remote/         # API calls (if needed)
+├── domain/
+│   ├── usecase/        # Business logic
+│   └── repository/     # Repository interfaces
+├── presentation/
+│   ├── auth/           # Login/Register screens
+│   ├── customer/       # Customer screens
+│   ├── shopowner/      # Shop owner screens
+│   ├── common/         # Common composables
+│   └── navigation/     # Navigation graphs
+└── utils/              # Extensions, helpers
+
+
+
+Direct phone ka time bhi use kar sakte ho, lekin Firebase timestamp use karna better hai.
