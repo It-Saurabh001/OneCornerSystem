@@ -28,6 +28,8 @@ data class Shop(
     val totalRevenue: Double = 0.0,
     val averageOrderValue: Double = 0.0,
     val operatingHours: Map<String, OperatingHour> = emptyMap(),
+    val hasLogo: Boolean = false,
+    val hasCover: Boolean = false,
     val createdAt: Timestamp = Timestamp.now(),
     val updatedAt: Timestamp = Timestamp.now()
 )

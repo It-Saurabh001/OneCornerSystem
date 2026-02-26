@@ -124,7 +124,7 @@ Successfully created 6 comprehensive ViewModels for the ShopOwner module using a
 ---
 
 ### 5. **ShopProfileViewModel**
-**Location:** `app/src/main/java/com/saurabh/onecornersystem/presentation/shopowner/viewmodel/ShopProfileViewModel.kt`
+**Location:** `app/src/main/java/com/saurabh/onecornersystem/presentation/shopowner/viewmodel/ShopViewModel.kt`
 
 **Purpose:** Manages shop profile and shop details
 
@@ -222,7 +222,7 @@ presentation/shopowner/viewmodel/
 ├── ProductManagementViewModel.kt
 ├── OrderManagementViewModel.kt
 ├── InventoryViewModel.kt
-├── ShopProfileViewModel.kt
+├── ShopViewModel.kt
 └── AnalyticsViewModel.kt
 ```
 
