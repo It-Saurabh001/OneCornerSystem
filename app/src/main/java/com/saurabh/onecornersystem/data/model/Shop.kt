@@ -3,10 +3,12 @@ package com.saurabh.onecornersystem.data.model
 import com.google.firebase.Timestamp
 import com.google.firebase.firestore.GeoPoint
 
+
 data class Shop(
     val shopId: String = "",
     val ownerId: String = "",
     val shopName: String = "",
+    val shopType: ShopType = ShopType.PRODUCT,
     val category: String = "",
     val description: String = "",
     val location: GeoPoint = GeoPoint(0.0, 0.0),
@@ -23,7 +25,7 @@ data class Shop(
     val isActive: Boolean = true,
     val rating: Double = 0.0,
     val totalRatings: Int = 0,
-    val totalProducts: Int = 0,
+    val totalItems: Int = 0,
     val totalOrders: Int = 0,
     val totalRevenue: Double = 0.0,
     val averageOrderValue: Double = 0.0,
@@ -46,5 +48,10 @@ data class ShopCategory(
     val categoryName: String = "",
     val description: String = "",
     val icon: String = "" // URL or drawable reference
+)
+
+data class CategoryWithType(
+    val categoryName: String,
+    val shopType: ShopType
 )
 

@@ -1,7 +1,9 @@
 package com.saurabh.onecornersystem.presentation.auth.viewmodel
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.saurabh.onecornersystem.data.local.SessionManager
 import com.saurabh.onecornersystem.data.model.User
 import com.saurabh.onecornersystem.data.repository.AuthRepository
 import com.saurabh.onecornersystem.utils.Resource
@@ -13,7 +15,8 @@ import javax.inject.Inject
 
 @HiltViewModel
 class AuthViewModel @Inject constructor(
-    private val authRepository: AuthRepository
+    private val authRepository: AuthRepository,
+    private val sessionManager: SessionManager
 ) : ViewModel(){
 
     private val _loginState = MutableStateFlow<Resource<User>>(Resource.Idle)
@@ -24,6 +27,15 @@ class AuthViewModel @Inject constructor(
 
     private val _currentUser = MutableStateFlow<User?>(null)
     val currentUser: StateFlow<User?> = _currentUser
+
+    // Expose session manager flows directly
+    val isLoggedIn = sessionManager.isLoggedIn
+    val userRole = sessionManager.userRole
+
+    init {
+        // Load current user data on ViewModel initialization
+        loadCurrentUser()
+    }
 
 
     fun login(email: String, password: String) {
@@ -43,10 +55,11 @@ class AuthViewModel @Inject constructor(
         password: String,
         name: String,
         phone: String,
-        role: String
+        role: String,
+        shopType: com.saurabh.onecornersystem.data.model.ShopType? = null
     ) {
         viewModelScope.launch {
-            authRepository.registerUser(email, password, name, phone, role)
+            authRepository.registerUser(email, password, name, phone, role, shopType)
                 .collect { result ->
                     _registerState.value = result
                     if (result is Resource.Success) {
@@ -62,9 +75,12 @@ class AuthViewModel @Inject constructor(
     }
 
     fun logout() {
-        _currentUser.value = null
-        _loginState.value = Resource.Idle
-        _registerState.value = Resource.Idle
+        viewModelScope.launch {
+            authRepository.logout()
+            _currentUser.value = null
+            _loginState.value = Resource.Idle
+            _registerState.value = Resource.Idle
+        }
     }
 
     fun updateShopOwnerActiveStatus(isActive: Boolean) {
@@ -77,6 +93,28 @@ class AuthViewModel @Inject constructor(
                         // Update the local state
                         val updatedUser = _currentUser.value?.copy(isActive = isActive)
                         _currentUser.value = updatedUser
+                    }
+                }
+        }
+    }
+
+    // Load current user data from Firestore
+    private fun loadCurrentUser() {
+        viewModelScope.launch {
+            authRepository.getCurrentUser()
+                .collect { result ->
+                    when (result) {
+                        is Resource.Success -> {
+                            _currentUser.value = result.data
+                            Log.d("AuthViewModel", "Current user loaded: ${result.data?.email}")
+                        }
+                        is Resource.Error -> {
+                            Log.d("AuthViewModel", "Error loading current user: ${result.message}")
+                        }
+                        is Resource.Loading -> {
+                            Log.d("AuthViewModel", "Loading current user...")
+                        }
+                        else -> {}
                     }
                 }
         }

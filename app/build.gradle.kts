@@ -86,4 +86,10 @@ dependencies {
     implementation(libs.firebase.database)
     implementation(libs.firebase.firestore)
 
+    // DataStore for persistent login
+    implementation("androidx.datastore:datastore-preferences:1.2.0")
+
+    // Android Splash Screen API
+    implementation("androidx.core:core-splashscreen:1.2.0")
+
 }

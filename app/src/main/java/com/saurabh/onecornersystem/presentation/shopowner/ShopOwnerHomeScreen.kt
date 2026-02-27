@@ -1,7 +1,6 @@
 package com.saurabh.onecornersystem.presentation.shopowner
 
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -11,39 +10,32 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Dashboard
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Insights
 import androidx.compose.material.icons.filled.Inventory
 import androidx.compose.material.icons.filled.LocalOffer
+import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.ShoppingBag
-import androidx.compose.material.icons.filled.ShoppingCart
-import androidx.compose.material.icons.filled.Star
-import androidx.compose.material.icons.filled.Store
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.Badge
 import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.OutlinedTextField
@@ -54,33 +46,44 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.runtime.collectAsState
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.saurabh.onecornersystem.R
+import com.saurabh.onecornersystem.data.model.User
 import com.saurabh.onecornersystem.presentation.auth.viewmodel.AuthViewModel
+import com.saurabh.onecornersystem.presentation.common.AppNavigationDrawer
+import kotlinx.coroutines.launch
 
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ShopOwnerHomeScreen(
+    currentUser: User?,
     onAddProduct: () -> Unit,
     onViewOrders: () -> Unit,
     onProfileClick: () -> Unit,
+    onProfileDrawerClick: () -> Unit,
+    onSettingsClick: () -> Unit,
+    onAboutClick: () -> Unit,
+    onThemeClick: () -> Unit,
+    onContactClick: () -> Unit,
     authViewModel: AuthViewModel = hiltViewModel()
 ) {
     var selectedTab by remember { mutableStateOf(0) }
-    val currentUser by authViewModel.currentUser.collectAsState()
+    val currentUserState by authViewModel.currentUser.collectAsState()
+    val drawerState = rememberDrawerState(DrawerValue.Closed)
+    val scope = rememberCoroutineScope()
 
     // Sample data
     val products = remember {
@@ -102,22 +105,61 @@ fun ShopOwnerHomeScreen(
     }
 
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = {
-                    Column {
-                        Text(
-                            text = "My Shop",
-                            fontSize = 22.sp
-                        )
-                        Text(
+    ModalNavigationDrawer(
+        drawerState = drawerState,
+        drawerContent = {
+            Surface(
+                modifier = Modifier.fillMaxWidth(0.75f)
+            ) {
+                AppNavigationDrawer(
+                    user = currentUser,
+                    onProfileClick = {
+                        scope.launch { drawerState.close() }
+                        onProfileDrawerClick()
+                    },
+                    onSettingsClick = {
+                        scope.launch { drawerState.close() }
+                        onSettingsClick()
+                    },
+                    onAboutClick = {
+                        scope.launch { drawerState.close() }
+                        onAboutClick()
+                    },
+                    onThemeClick = {
+                        scope.launch { drawerState.close() }
+                        onThemeClick()
+                    },
+                    onContactClick = {
+                        scope.launch { drawerState.close() }
+                        onContactClick()
+                    }
+                )
+            }
+        }
+    ) {
+        Scaffold(
+            topBar = {
+                TopAppBar(
+                    title = {
+                        Column {
+                            Text(
+                                text = "My Shop",
+                                fontSize = 22.sp
+                            )
+                            Text(
                             text = "Pizza House",
                             fontSize = 14.sp,
                             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                         )
-                    }
-                },
+                        }
+                    },
+                    navigationIcon = {
+                        IconButton(onClick = {
+                            scope.launch { drawerState.open() }
+                        }) {
+                            Icon(Icons.Default.Menu, contentDescription = "Menu")
+                        }
+                    },
                 actions = {
                     // Shop Status Toggle
                     Switch(
@@ -138,10 +180,10 @@ fun ShopOwnerHomeScreen(
                         Icon(Icons.Default.Notifications, contentDescription = "Notifications")
                     }
 
-                    // Profile
-                    IconButton(onClick = onProfileClick) {
-                        Icon(Icons.Default.Person, contentDescription = "Profile")
-                    }
+//                    // Profile
+//                    IconButton(onClick = onProfileClick) {
+//                        Icon(Icons.Default.Person, contentDescription = "Profile")
+//                    }
                 }
             )
         },
@@ -187,11 +229,8 @@ fun ShopOwnerHomeScreen(
             3 -> InsightsTab(paddingValues)
         }
     }
-
-
+    }
 }
-
-
 
 
 @Composable

@@ -19,6 +19,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Search
@@ -29,11 +30,13 @@ import androidx.compose.material.icons.filled.Store
 import androidx.compose.material3.Badge
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.OutlinedTextField
@@ -42,10 +45,12 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -54,17 +59,28 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.saurabh.onecornersystem.R
+import com.saurabh.onecornersystem.data.model.User
+import com.saurabh.onecornersystem.presentation.common.AppNavigationDrawer
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun CustomerHomeScreen (
+fun CustomerHomeScreen(
+    currentUser: User?,
     onShopClick: (String) -> Unit,
     onCartClick: () -> Unit,
     onOrdersClick: () -> Unit,
-    onProfileClick: () -> Unit
+    onProfileClick: () -> Unit,
+    onProfileDrawerClick: () -> Unit,
+    onSettingsClick: () -> Unit,
+    onAboutClick: () -> Unit,
+    onThemeClick: () -> Unit,
+    onContactClick: () -> Unit
 ){
     var searchQuery by remember { mutableStateOf("") }
     var selectedCategory by remember { mutableStateOf("All") }
+    val drawerState = rememberDrawerState(DrawerValue.Closed)
+    val scope = rememberCoroutineScope()
 
     val categories = listOf("All", "Restaurants", "Grocery", "Medical", "Electronics", "Fashion")
     // Sample shops data (replace with actual data from ViewModel)
@@ -77,27 +93,66 @@ fun CustomerHomeScreen (
         )
     }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = {
-                    Column {
-                        Text(
-                            text = "OneCorner",
-                            fontSize = 22.sp
-                        )
-                        Text(
-                            text = "Deliver to: Home",
-                            fontSize = 14.sp,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                        )
+    ModalNavigationDrawer(
+        drawerState = drawerState,
+        drawerContent = {
+            Surface(
+                modifier = Modifier.fillMaxWidth(0.75f)
+            ) {
+                AppNavigationDrawer(
+                    user = currentUser,
+                    onProfileClick = {
+                        scope.launch { drawerState.close() }
+                        onProfileDrawerClick()
+                    },
+                    onSettingsClick = {
+                        scope.launch { drawerState.close() }
+                        onSettingsClick()
+                    },
+                    onAboutClick = {
+                        scope.launch { drawerState.close() }
+                        onAboutClick()
+                    },
+                    onThemeClick = {
+                        scope.launch { drawerState.close() }
+                        onThemeClick()
+                    },
+                    onContactClick = {
+                        scope.launch { drawerState.close() }
+                        onContactClick()
                     }
-                },
-                actions = {
-                    // Cart Button
-                    IconButton(onClick = onCartClick) {
-                        Badge(
-                            containerColor = MaterialTheme.colorScheme.primary
+                )
+            }
+        }
+    ) {
+        Scaffold(
+            topBar = {
+                TopAppBar(
+                    title = {
+                        Column {
+                            Text(
+                                text = "OneCorner",
+                                fontSize = 22.sp
+                            )
+                            Text(
+                                text = "Deliver to: Home",
+                                fontSize = 14.sp,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                            )
+                        }
+                    },
+                    navigationIcon = {
+                        IconButton(onClick = {
+                            scope.launch { drawerState.open() }
+                        }) {
+                            Icon(Icons.Default.Menu, contentDescription = "Menu")
+                        }
+                    },
+                    actions = {
+                        // Cart Button
+                        IconButton(onClick = onCartClick) {
+                            Badge(
+                                containerColor = MaterialTheme.colorScheme.primary
                         ) {
                             Text("3")
                         }
@@ -183,12 +238,7 @@ fun CustomerHomeScreen (
             }
         }
     }
-
-
-
-
-
-
+    }
 }
 
 

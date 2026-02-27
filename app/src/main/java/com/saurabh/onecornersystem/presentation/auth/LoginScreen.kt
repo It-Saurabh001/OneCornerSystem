@@ -29,7 +29,6 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.hilt.navigation.compose.hiltViewModel
 import com.saurabh.onecornersystem.presentation.auth.viewmodel.AuthViewModel
 import com.saurabh.onecornersystem.utils.Resource
 
@@ -37,7 +36,7 @@ import com.saurabh.onecornersystem.utils.Resource
 fun LoginScreen(
     onNavigateToRegister: () -> Unit,
     onLoginSuccess: (String) -> Unit,
-    viewModel: AuthViewModel = hiltViewModel()
+    viewModel: AuthViewModel
 ){
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }

@@ -41,7 +41,6 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.hilt.navigation.compose.hiltViewModel
 import com.saurabh.onecornersystem.presentation.auth.viewmodel.AuthViewModel
 import com.saurabh.onecornersystem.utils.Resource
 
@@ -50,7 +49,7 @@ import com.saurabh.onecornersystem.utils.Resource
 fun RegisterScreen(
     onNavigateBack: () -> Unit,
     onRegisterSuccess: (String) -> Unit,
-    viewModel: AuthViewModel = hiltViewModel()
+    viewModel: AuthViewModel
 ) {
     var name by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
@@ -58,6 +57,7 @@ fun RegisterScreen(
     var password by remember { mutableStateOf("") }
     var confirmPassword by remember { mutableStateOf("") }
     var selectedRole by remember { mutableStateOf("customer") } // "customer" or "shop_owner"
+    var selectedShopType by remember { mutableStateOf<com.saurabh.onecornersystem.data.model.ShopType?>(null) } // PRODUCT or SERVICE
     var passwordError by remember { mutableStateOf<String?>(null) }
 
     val registerState by viewModel.registerState.collectAsState()
@@ -210,7 +210,42 @@ fun RegisterScreen(
 
                 Spacer(modifier = Modifier.height(24.dp))
 
-                // Show error if any
+                // Show ShopType Selection for Shop Owners
+                if (selectedRole == "shop_owner") {
+                    Text(
+                        text = "Select Shop Type:",
+                        style = MaterialTheme.typography.bodyLarge
+                    )
+
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 16.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        // Product Shop
+                        ShopTypeCard(
+                            title = "Product Shop",
+                            description = "Cloth, Grocery, etc.",
+                            isSelected = selectedShopType == com.saurabh.onecornersystem.data.model.ShopType.PRODUCT,
+                            onClick = { selectedShopType = com.saurabh.onecornersystem.data.model.ShopType.PRODUCT },
+                            modifier = Modifier.weight(1f)
+                        )
+
+                        // Service Shop
+                        ShopTypeCard(
+                            title = "Service Shop",
+                            description = "Mechanic, Salon, etc.",
+                            isSelected = selectedShopType == com.saurabh.onecornersystem.data.model.ShopType.SERVICE,
+                            onClick = { selectedShopType = com.saurabh.onecornersystem.data.model.ShopType.SERVICE },
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+                }
+
+                Spacer(modifier = Modifier.height(24.dp))
                 if (registerState is Resource.Error) {
                     Card(
                         colors = CardDefaults.cardColors(
@@ -232,7 +267,9 @@ fun RegisterScreen(
                 Button(
                     onClick = {
                         if (password == confirmPassword) {
-                            viewModel.register(email, password, name, phone, selectedRole)
+                            // If shop owner, shopType must be selected
+                            val shopTypeToSend = if (selectedRole == "shop_owner") selectedShopType else null
+                            viewModel.register(email, password, name, phone, selectedRole, shopTypeToSend)
                         }
                     },
                     modifier = Modifier.fillMaxWidth(),
@@ -241,7 +278,8 @@ fun RegisterScreen(
                             email.isNotBlank() &&
                             phone.isNotBlank() &&
                             password.isNotBlank() &&
-                            password == confirmPassword
+                            password == confirmPassword &&
+                            (selectedRole != "shop_owner" || selectedShopType != null) // Shop owner must select type
                 ) {
                     if (registerState.isLoading()) {
                         CircularProgressIndicator(
@@ -323,7 +361,49 @@ fun RoleCard(
     }
 }
 
-
+@Composable
+fun ShopTypeCard(
+    title: String,
+    description: String,
+    isSelected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier
+            .padding(8.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = if (isSelected)
+                MaterialTheme.colorScheme.primaryContainer
+            else
+                MaterialTheme.colorScheme.surfaceVariant
+        ),
+        onClick = onClick
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.labelLarge,
+                color = if (isSelected)
+                    MaterialTheme.colorScheme.primary
+                else
+                    MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = description,
+                fontSize = 11.sp,
+                color = if (isSelected)
+                    MaterialTheme.colorScheme.primary
+                else
+                    MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
 
 // Helper composable for scrollable column
 @Composable

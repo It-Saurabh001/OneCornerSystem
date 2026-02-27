@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="200dp"
+    android:height="200dp"
+    android:viewportWidth="200"
+    android:viewportHeight="200">
+    <!-- Circle background -->
+    <path
+        android:fillColor="@android:color/white"
+        android:pathData="M100,10 A90,90 0 1,1 100,190 A90,90 0 1,1 100,10" />
+    <!-- Text representation - using simple shapes -->
+    <path
+        android:fillColor="#6200EE"
+        android:pathData="M50,80 L70,80 L70,120 L50,120 Z" />
+    <path
+        android:fillColor="#6200EE"
+        android:pathData="M130,80 L150,80 L150,120 L130,120 Z" />
+</vector>
+

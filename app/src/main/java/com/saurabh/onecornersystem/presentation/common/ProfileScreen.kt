@@ -1,6 +1,7 @@
 package com.saurabh.onecornersystem.presentation.common
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -11,39 +12,58 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Email
+import androidx.compose.material.icons.filled.DarkMode
+import androidx.compose.material.icons.filled.Help
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.Logout
-import androidx.compose.material.icons.filled.Phone
-import androidx.compose.material.icons.filled.Store
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Divider
+import androidx.compose.material3.DividerDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.saurabh.onecornersystem.data.model.User
+import com.saurabh.onecornersystem.ui.theme.OneCornerSystemTheme
 
+// Profile screen with persistent login and navigation drawer integration
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProfileScreen(
@@ -52,282 +72,188 @@ fun ProfileScreen(
     onEditClick: () -> Unit,
     onLogoutClick: () -> Unit
 ) {
+    val scrollState = rememberScrollState()
     Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Profile") },
-                navigationIcon = {
-                    IconButton(onClick = onBackClick) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
-                    }
-                },
-                actions = {
-                    IconButton(onClick = onEditClick) {
-                        Icon(Icons.Default.Edit, contentDescription = "Edit Profile")
-                    }
-                }
-            )
-        }
-    ) { paddingValues ->
-        LazyColumn(
+    ) { padding ->
+        Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(paddingValues)
-                .background(MaterialTheme.colorScheme.background),
-            verticalArrangement = Arrangement.Top,
-            horizontalAlignment = Alignment.CenterHorizontally
+                .background(Color(0xFFF5F5F5))
+                .padding(padding)
+                .verticalScroll(rememberScrollState())
         ) {
-            // Profile Header
-            item {
-                Spacer(modifier = Modifier.height(24.dp))
 
-                // Profile Image
-                Box(
-                    modifier = Modifier
-                        .size(120.dp)
-                        .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.primaryContainer),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = if (user.role == "shop_owner") Icons.Default.Store else Icons.Default.Person,
-                        contentDescription = "Profile Icon",
-                        modifier = Modifier.size(60.dp),
-                        tint = MaterialTheme.colorScheme.primary
-                    )
-                }
+            ProfileTopBar(onBackClick = onBackClick)
 
-                Spacer(modifier = Modifier.height(16.dp))
 
-                // User Name
-                Text(
-                    text = user.name,
-                    fontSize = 24.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onBackground
-                )
 
-                // User Role Badge
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = user.role.uppercase().replace("_", " "),
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier
-                        .background(
-                            color = MaterialTheme.colorScheme.primaryContainer,
-                            shape = MaterialTheme.shapes.small
+
+            // Top Header with Gradient
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(220.dp)
+                    .background(
+                        brush = Brush.verticalGradient(
+                            colors = listOf(
+                                Color(0xFF4A90E2),
+                                Color(0xFF2C5FD5)
+                            )
+                        ),
+                        shape = RoundedCornerShape(
+                            bottomStart = 30.dp,
+                            bottomEnd = 30.dp
                         )
-                        .padding(horizontal = 12.dp, vertical = 6.dp)
-                )
-
-                Spacer(modifier = Modifier.height(24.dp))
-            }
-
-            // Contact Information Section
-            item {
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surface
-                    )
-                ) {
-                    Column(
-                        modifier = Modifier.padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(16.dp)
-                    ) {
-                        // Email
-                        ProfileInfoRow(
-                            icon = Icons.Default.Email,
-                            label = "Email",
-                            value = user.email
-                        )
-
-                        Divider(modifier = Modifier.padding(vertical = 8.dp))
-
-                        // Phone
-                        ProfileInfoRow(
-                            icon = Icons.Default.Phone,
-                            label = "Phone",
-                            value = user.phone
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(24.dp))
-            }
-
-            // Account Information Section
-            item {
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surface
-                    )
-                ) {
-                    Column(
-                        modifier = Modifier.padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    // Avatar with first letter
+                    Box(
+                        modifier = Modifier
+                            .size(100.dp)
+                            .clip(CircleShape)
+                            .background(Color.White.copy(alpha = 0.2f)),
+                        contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = "Account Information",
-                            fontWeight = FontWeight.SemiBold,
-                            fontSize = 14.sp,
-                            color = MaterialTheme.colorScheme.onSurface
+                            text = user.name.firstOrNull()?.toString()?.uppercase() ?: "U",
+                            fontSize = 40.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
                         )
-
-                        // User ID
-                        AccountInfoItem(
-                            label = "User ID",
-                            value = user.userId
-                        )
-
-                        // Role
-                        AccountInfoItem(
-                            label = "Role",
-                            value = user.role.replace("_", " ").replaceFirstChar { it.uppercase() }
-                        )
-
-                        // Member Since
-                        AccountInfoItem(
-                            label = "Member Since",
-                            value = formatTimestamp(user.createdAt.toDate().toString())
-                        )
-
-                        // Last Login
-                        AccountInfoItem(
-                            label = "Last Login",
-                            value = formatTimestamp(user.lastLogin.toDate().toString())
-                        )
-
-                        // Active Status (for shop owners)
-                        if (user.role == "shop_owner") {
-                            Divider(modifier = Modifier.padding(vertical = 8.dp))
-                            AccountInfoItem(
-                                label = "Shop Status",
-                                value = if (user.isActive) "Active ✓" else "Inactive"
-                            )
-                        }
                     }
-                }
 
-                Spacer(modifier = Modifier.height(24.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Text(
+                        text = user.name.uppercase(),
+                        color = Color.White,
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+
+                    Text(
+                        text = user.role.uppercase().replace("_", " "),
+                        color = Color.White.copy(alpha = 0.7f),
+                        fontSize = 14.sp
+                    )
+                }
             }
 
-            // Action Buttons
-            item {
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // User Details Card
+            Card(
+                modifier = Modifier
+                    .padding(horizontal = 16.dp)
+                    .fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                elevation = CardDefaults.cardElevation(4.dp)
+            ) {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp),
+                        .padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    // Edit Button
-                    Button(
-                        onClick = onEditClick,
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.primary
-                        )
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(8.dp),
-                            horizontalArrangement = Arrangement.Center,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Edit,
-                                contentDescription = "Edit",
-                                modifier = Modifier.size(20.dp),
-                                tint = MaterialTheme.colorScheme.onPrimary
-                            )
-                            Spacer(modifier = Modifier.padding(8.dp))
-                            Text(
-                                text = "Edit Profile",
-                                fontWeight = FontWeight.SemiBold
-                            )
-                        }
-                    }
+                    // Email
+                    UserDetailItem("📧 Email", user.email)
+                    HorizontalDivider(Modifier, DividerDefaults.Thickness, DividerDefaults.color)
 
-                    // Logout Button
-                    OutlinedButton(
-                        onClick = onLogoutClick,
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.outlinedButtonColors(
-                            contentColor = MaterialTheme.colorScheme.error
-                        )
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(8.dp),
-                            horizontalArrangement = Arrangement.Center,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Logout,
-                                contentDescription = "Logout",
-                                modifier = Modifier.size(20.dp),
-                                tint = MaterialTheme.colorScheme.error
-                            )
-                            Spacer(modifier = Modifier.padding(8.dp))
-                            Text(
-                                text = "Logout",
-                                fontWeight = FontWeight.SemiBold
-                            )
-                        }
-                    }
+                    // Phone
+                    UserDetailItem("📱 Phone", user.phone)
+                    HorizontalDivider(Modifier, DividerDefaults.Thickness, DividerDefaults.color)
 
-                    Spacer(modifier = Modifier.height(24.dp))
+                    // Role
+                    UserDetailItem("👤 Role", user.role.uppercase().replace("_", " "))
+                    HorizontalDivider(Modifier, DividerDefaults.Thickness, DividerDefaults.color)
+
+                    // User ID
+                    UserDetailItem("🆔 User ID", user.userId)
                 }
             }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Stats Card
+            Card(
+                modifier = Modifier
+                    .padding(horizontal = 16.dp)
+                    .fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                elevation = CardDefaults.cardElevation(4.dp)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .padding(16.dp)
+                        .fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceEvenly
+                ) {
+                    StatItem("24", "Orders")
+                    HorizontalDivider(
+                        modifier = Modifier
+                            .height(40.dp)
+                            .width(1.dp),
+                        thickness = DividerDefaults.Thickness,
+                        color = DividerDefaults.color
+                    )
+                    StatItem("₹1.2L", "Total Spent")
+                    HorizontalDivider(
+                        modifier = Modifier
+                            .height(40.dp)
+                            .width(1.dp),
+                        thickness = DividerDefaults.Thickness,
+                        color = DividerDefaults.color
+                    )
+                    StatItem("4.8", "Rating")
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+
+            Spacer(modifier = Modifier.height(20.dp))
+
+            // Logout Button
+            Button(
+                onClick = onLogoutClick,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color(0xFFE53935)
+                ),
+                modifier = Modifier
+                    .padding(horizontal = 16.dp)
+                    .fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Icon(Icons.Default.Logout, contentDescription = null, tint = Color.White)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Logout / लॉग आउट", color = Color.White)
+            }
+
+            Spacer(modifier = Modifier.height(20.dp))
         }
     }
 }
 
 @Composable
-fun ProfileInfoRow(
-    icon: ImageVector,
-    label: String,
-    value: String
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = label,
-            modifier = Modifier.size(24.dp),
-            tint = MaterialTheme.colorScheme.primary
+fun StatItem(value: String, label: String) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(
+            text = value,
+            fontWeight = FontWeight.Bold,
+            fontSize = 18.sp
         )
-
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = label,
-                fontSize = 12.sp,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
-                fontWeight = FontWeight.Medium
-            )
-            Text(
-                text = value,
-                fontSize = 14.sp,
-                color = MaterialTheme.colorScheme.onSurface,
-                fontWeight = FontWeight.SemiBold
-            )
-        }
+        Text(
+            text = label,
+            fontSize = 14.sp,
+            color = Color.Gray
+        )
     }
 }
 
 @Composable
-fun AccountInfoItem(
-    label: String,
-    value: String
-) {
+fun UserDetailItem(label: String, value: String) {
     Column(
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(4.dp)
@@ -335,20 +261,69 @@ fun AccountInfoItem(
         Text(
             text = label,
             fontSize = 12.sp,
-            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
-            fontWeight = FontWeight.Medium
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.primary
         )
         Text(
             text = value,
             fontSize = 14.sp,
-            color = MaterialTheme.colorScheme.onSurface,
-            fontWeight = FontWeight.SemiBold
+            fontWeight = FontWeight.Medium,
+            color = MaterialTheme.colorScheme.onBackground
         )
     }
 }
 
-fun formatTimestamp(dateString: String): String {
-    // Simple formatting - returns just the date part
-    return dateString.substringBefore(" ")
+
+
+@Composable
+fun ProfileTopBar(onBackClick: () -> Unit) {
+    Surface(
+        modifier = Modifier
+            .background(Color(0xFF4A90E2))
+            .fillMaxWidth()
+            .shadow(elevation = 0.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(Color(0xFF4A90E2))
+                .padding(6.dp),
+//            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            IconButton(onClick = onBackClick) {
+                Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = Color.White)
+            }
+            Text(
+                text = "Profile",
+                color = Color.White,
+                fontSize = 20.sp,
+                fontWeight = FontWeight.Medium,
+                modifier = Modifier.padding(start = 10.dp)
+            )
+        }
+    }
 }
+
+
+@Preview(showBackground = true)
+@Composable
+fun ProfileScreenPreview() {
+    OneCornerSystemTheme {
+        ProfileScreen(
+            user = User(
+                userId = "USR123",
+                name = "Saurabh Kumar",
+                email = "saurabh@example.com",
+                phone = "9876543210",
+                role = "customer"
+            ),
+            onBackClick = {},
+            onEditClick = {},
+            onLogoutClick = {}
+        )
+    }
+}
+
+
 

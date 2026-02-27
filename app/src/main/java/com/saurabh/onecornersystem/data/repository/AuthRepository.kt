@@ -6,6 +6,8 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.auth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.firestore
+import com.saurabh.onecornersystem.data.local.SessionManager
+import com.saurabh.onecornersystem.data.model.ShopType
 import com.saurabh.onecornersystem.data.model.User
 import com.saurabh.onecornersystem.utils.Resource
 import kotlinx.coroutines.flow.Flow
@@ -15,7 +17,8 @@ import javax.inject.Inject
 
 class AuthRepository @Inject constructor(
     private val auth: FirebaseAuth,
-    private val firestore: FirebaseFirestore
+    private val firestore: FirebaseFirestore,
+    private val sessionManager: SessionManager
 ) {
 
 
@@ -26,7 +29,8 @@ class AuthRepository @Inject constructor(
         password: String,
         name: String,
         phone: String,
-        role: String
+        role: String,
+        shopType: ShopType? = null
     ): Flow<Resource<User>> = flow {
         emit(Resource.Loading)
 
@@ -42,6 +46,7 @@ class AuthRepository @Inject constructor(
                 email = email,
                 phone = phone,
                 role = role,
+                shopType = shopType,
                 createdAt = com.google.firebase.Timestamp.now()
             )
 
@@ -50,6 +55,9 @@ class AuthRepository @Inject constructor(
                 .document(firebaseUser.uid)
                 .set(user)
                 .await()
+
+            // 4. Save session
+            sessionManager.saveLoginSession(firebaseUser.uid, email, role)
 
             emit(Resource.Success(user))
             Log.d("AuthRepository", "User registered successfully: ${firebaseUser.uid}")
@@ -77,6 +85,9 @@ class AuthRepository @Inject constructor(
 
             val user = userDoc.toObject(User::class.java)
             if (user != null) {
+                // 3. Save session
+                sessionManager.saveLoginSession(firebaseUser.uid, email, user.role)
+
                 emit(Resource.Success(user))
                 Log.d("AuthRepository", "User logged in successfully: ${firebaseUser.uid}")
             } else {
@@ -129,6 +140,17 @@ class AuthRepository @Inject constructor(
         } catch (e: Exception) {
             emit(Resource.Error(e.message ?: "Failed to update status"))
             Log.e("AuthRepository", "Update status error", e)
+        }
+    }
+
+    // Logout
+    suspend fun logout() {
+        try {
+            auth.signOut()
+            sessionManager.clearSession()
+            Log.d("AuthRepository", "User logged out successfully")
+        } catch (e: Exception) {
+            Log.e("AuthRepository", "Logout error", e)
         }
     }
 

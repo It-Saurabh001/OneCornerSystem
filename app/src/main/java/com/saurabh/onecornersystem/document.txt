@@ -1,19 +1,180 @@
-com.onecorner.system/
-├── data/
-│   ├── model/          # Data classes
-│   ├── repository/     # Firebase repositories
-│   └── remote/         # API calls (if needed)
-├── domain/
-│   ├── usecase/        # Business logic
-│   └── repository/     # Repository interfaces
-├── presentation/
-│   ├── auth/           # Login/Register screens
-│   ├── customer/       # Customer screens
-│   ├── shopowner/      # Shop owner screens
-│   ├── common/         # Common composables
-│   └── navigation/     # Navigation graphs
-└── utils/              # Extensions, helpers
+com.saurabh.onecornersystem/
+│
+├── MainActivity.kt                 # App ka main entry point
+├── OneCornerSystem.kt             # Application class
+│
+├── 📁 data/                        # Data Layer - Models aur Firebase Repositories
+│   ├── 📁 model/                  # Data classes
+│   │   ├── Analytics.kt           # Analytics data model
+│   │   ├── Chat.kt                # Chat message model
+│   │   ├── Order.kt               # Order data model
+│   │   ├── Product.kt             # Product data model
+│   │   ├── Shop.kt                # Shop data model
+│   │   └── User.kt                # User data model
+│   ├── 📁 repository/             # Firebase Repository Interfaces
+│   │   ├── AnalyticsRepository.kt # Analytics repository interface
+│   │   ├── AuthRepository.kt      # Authentication repository interface
+│   │   ├── ChatRepository.kt      # Chat repository interface
+│   │   ├── InventoryRepository.kt # Inventory repository interface
+│   │   ├── OrderRepository.kt     # Order repository interface
+│   │   ├── ProductRepository.kt   # Product repository interface
+│   │   └── ShopRepository.kt      # Shop repository interface
+│   └── 📁 remote/                 # Remote API calls (if needed)
+│
+├── 📁 domain/                      # Domain Layer - Business Logic
+│   ├── 📁 repository/             # Repository Implementations
+│   │   ├── AnalyticsRepositoryImpl.kt    # Analytics repository implementation
+│   │   ├── ChatRepositoryImpl.kt         # Chat repository implementation
+│   │   ├── InventoryRepositoryImpl.kt    # Inventory repository implementation
+│   │   ├── OrderRepositoryImpl.kt        # Order repository implementation
+│   │   ├── ProductRepositoryImpl.kt      # Product repository implementation
+│   │   └── ShopRepositoryImpl.kt         # Shop repository implementation
+│   │
+│   └── 📁 usecase/                # Business Logic Use Cases
+│       ├── BaseUseCase.kt         # Base use case class
+│       │
+│       ├── 📁 analytics/          # Analytics Use Cases
+│       │   ├── GenerateReportUseCase.kt       # Shop reports generate kare
+│       │   ├── GetShopAnalyticsUseCase.kt     # Shop ka analytics le
+│       │   └── GetTopProductsUseCase.kt       # Top products find kare
+│       │
+│       ├── 📁 chat/               # Chat Use Cases
+│       │   ├── GetChatMessagesUseCase.kt      # Messages fetch kare
+│       │   ├── MarkAsReadUseCase.kt           # Messages ko read mark kare
+│       │   └── SendMessageUseCase.kt          # Messages bheje
+│       │
+│       ├── 📁 inventory/          # Inventory Use Cases
+│       │   ├── CheckLowStockUseCase.kt        # Low stock check kare
+│       │   ├── SyncInventoryUseCase.kt        # Firebase se sync kare
+│       │   └── UpdateStockUseCase.kt          # Stock update kare
+│       │
+│       ├── 📁 order/              # Order Use Cases
+│       │   ├── AcceptOrderUseCase.kt          # Order accept kare
+│       │   ├── GetShopOrdersUseCase.kt        # Shop ke orders le
+│       │   ├── MarkOrderAsDeliveredUseCase.kt # Order delivered mark kare
+│       │   ├── RejectOrderUseCase.kt          # Order reject kare
+│       │   └── UpdateOrderStatusUseCase.kt    # Order status update kare
+│       │
+│       ├── 📁 product/            # Product Use Cases
+│       │   ├── AddProductVariantUseCase.kt    # Product variants add kare
+│       │   ├── CreateProductUseCase.kt        # Naye products add kare
+│       │   ├── DeleteProductUseCase.kt        # Products delete kare
+│       │   ├── ListProductsUseCase.kt         # Sab products list kare
+│       │   ├── UpdatePricingUseCase.kt        # Prices update kare
+│       │   └── UpdateProductUseCase.kt        # Product details update kare
+│       │
+│       └── 📁 shop/               # Shop Use Cases
+│           ├── CreateShopUseCase.kt           # Shop create kare
+│           ├── DeactivateShopUseCase.kt       # Shop deactivate kare
+│           ├── GetShopDetailsUseCase.kt       # Shop info le
+│           └── UpdateShopProfileUseCase.kt    # Shop profile update kare
+│
+├── 📁 presentation/                # Presentation Layer - UI & ViewModels
+│   ├── 📁 auth/                   # Authentication Screens
+│   │   ├── LoginScreen.kt         # Login screen composable
+│   │   ├── RegisterScreen.kt      # Register screen composable
+│   │   └── 📁 viewmodel/
+│   │       └── AuthViewModel.kt   # Auth ViewModel
+│   │
+│   ├── 📁 customer/               # Customer Screens
+│   │   ├── CustomerHomeScreen.kt  # Customer home screen
+│   │   └── 📁 viewmodel/
+│   │       └── CustomerShopViewModel.kt # Customer shopping ViewModel
+│   │
+│   ├── 📁 shopowner/              # Shop Owner Screens
+│   │   ├── ShopOwnerHomeScreen.kt # Shop owner ka home screen
+│   │   └── 📁 viewmodel/          # Shop Owner ViewModels
+│   │       ├── AnalyticsViewModel.kt          # Analytics ViewModel
+│   │       ├── DashboardViewModel.kt          # Dashboard ViewModel
+│   │       ├── InventoryViewModel.kt          # Inventory management ViewModel
+│   │       ├── OrderManagementViewModel.kt    # Order management ViewModel
+│   │       ├── ProductManagementViewModel.kt  # Product management ViewModel
+│   │       └── ShopViewModel.kt               # Shop profile ViewModel
+│   │
+│   ├── 📁 common/                 # Common/Shared Components
+│   │   ├── CommonShopViewModel.kt # Shared shop ViewModel
+│   │   └── ProfileScreen.kt       # Profile screen composable
+│   │
+│   ├── 📁 state/                  # UI State Data Classes
+│   │   ├── AnalyticsState.kt      # Analytics UI state
+│   │   ├── InventoryAndChatState.kt # Inventory & Chat UI state
+│   │   ├── OrderState.kt          # Order UI state
+│   │   ├── ProductState.kt        # Product UI state
+│   │   └── ShopState.kt           # Shop UI state
+│   │
+│   └── 📁 navigation/             # Navigation Graphs
+│       └── NavGraph.kt            # Navigation routes
+│
+├── 📁 di/                         # Dependency Injection (Hilt Modules)
+│   ├── AppModule.kt               # Main app module
+│   ├── RepositoryModule.kt        # Repository dependencies
+│   └── UseCaseModule.kt           # Use case dependencies
+│
+├── 📁 ui/                         # UI Theme & Styling
+│   └── 📁 theme/
+│       ├── Color.kt               # Color palette
+│       ├── Theme.kt               # Jetpack Compose theme
+│       └── Type.kt                # Typography
+│
+└── 📁 utils/                      # Utilities & Helpers
+    ├── ImageUtils.kt              # Image handling
+    └── Resource.kt                # Generic resource wrapper
 
 
+═══════════════════════════════════════════════════════════════════════════════
+ARCHITECTURE: MVVM + Clean Architecture (3 Layers)
+═══════════════════════════════════════════════════════════════════════════════
 
-Direct phone ka time bhi use kar sakte ho, lekin Firebase timestamp use karna better hai.
+📊 PROJECT LAYERS:
+
+1️⃣ DATA LAYER (data/)
+   - Models: Data classes jo Firebase se  aate hain
+   - Repositories: Firebase operations implement karti hain
+   - Remote: API calls (optional)
+
+2️⃣ DOMAIN LAYER (domain/)
+   - Repository Implementations: Business logic implement karte hain
+   - Use Cases: Specific features ka logic (BaseUseCase extend karte hain)
+
+3️⃣ PRESENTATION LAYER (presentation/)
+   - ViewModels: UI state manage karti hain
+   - Screens: Jetpack Compose screens
+   - States: UI ka state define karti hain
+   - Navigation: Screen transitions handle karti hain
+
+
+═══════════════════════════════════════════════════════════════════════════════
+COMPLETED FEATURES
+═══════════════════════════════════════════════════════════════════════════════
+
+✅ Authentication (Login/Register)
+✅ Shop Owner Dashboard
+✅ Product Management (Create, Update, Delete, Variants)
+✅ Order Management (Accept, Reject, Status Update)
+✅ Inventory Management (Stock tracking, Low stock alerts)
+✅ Analytics & Reports
+✅ Chat System
+✅ Customer Shopping Feature
+✅ Shop Profile Management
+✅ Dependency Injection (Hilt)
+✅ Navigation System
+✅ UI Theme & Styling
+
+
+═══════════════════════════════════════════════════════════════════════════════
+IMPORTANT NOTES
+═══════════════════════════════════════════════════════════════════════════════
+
+⏱️ Time: Direct phone time use kar sakte ho, lekin Firebase Timestamp use karna
+   better hai.
+
+🛠️ Tech Stack:
+   • Jetpack Compose - UI banane ke liye
+   • Firebase - Backend & Database
+   • Hilt - Dependency Injection
+   • Kotlin - Language
+   • MVVM - Architecture pattern
+
+📱 User Types:
+   • Customer - Shopping ke liye
+   • Shop Owner - Shop manage karne ke liye
