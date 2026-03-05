@@ -2,7 +2,9 @@ package com.saurabh.onecornersystem.di
 
 import android.content.Context
 import com.google.firebase.firestore.FirebaseFirestore
+import com.saurabh.onecornersystem.data.repository.ShopItemRepository
 import com.saurabh.onecornersystem.data.repository.ShopRepository
+import com.saurabh.onecornersystem.domain.repository.ShopItemRepositoryImpl
 import com.saurabh.onecornersystem.domain.repository.ShopRepositoryImpl
 import dagger.Module
 import dagger.Provides
@@ -17,13 +19,27 @@ object RepositoryModule {
 
     @Provides
     @Singleton
-    fun provideShopRepository(firestore: FirebaseFirestore,
-                              @ApplicationContext context: Context): ShopRepository {
+    fun provideShopRepository(
+        firestore: FirebaseFirestore,
+        @ApplicationContext context: Context): ShopRepository {
         return ShopRepositoryImpl(
             firestore,
             contentResolver = context.contentResolver
         )
     }
+
+
+    @Provides
+    @Singleton
+    fun provideShopItemRepository(
+        firestore: FirebaseFirestore,
+        @ApplicationContext context: Context): ShopItemRepository {
+        return ShopItemRepositoryImpl(
+            firestore,
+            contentResolver = context.contentResolver
+        )
+    }
+
 
 //    @Provides
 //    @Singleton

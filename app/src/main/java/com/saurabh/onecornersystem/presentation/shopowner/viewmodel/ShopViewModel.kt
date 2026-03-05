@@ -6,7 +6,6 @@ import androidx.lifecycle.viewModelScope
 import com.saurabh.onecornersystem.data.model.OperatingHour
 import com.saurabh.onecornersystem.data.model.Shop
 import com.saurabh.onecornersystem.data.repository.ShopRepository
-import com.saurabh.onecornersystem.presentation.common.CommonShopViewModel
 import com.saurabh.onecornersystem.utils.Resource
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -24,9 +23,9 @@ import javax.inject.Inject
  */
 @HiltViewModel
 class ShopViewModel @Inject constructor(
-    private val shopRepository: ShopRepository,
-    private val commonShopViewModel: CommonShopViewModel
-) : ViewModel(){
+    private val shopRepository: ShopRepository
+) : ViewModel() {
+
     // Shop Details
     private val _shopDetailsState = MutableStateFlow<Resource<Shop>>(Resource.Loading)
     val shopDetailsState: StateFlow<Resource<Shop>> = _shopDetailsState.asStateFlow()
@@ -46,7 +45,6 @@ class ShopViewModel @Inject constructor(
     // Deactivate Shop
     private val _deactivateShopState = MutableStateFlow<Resource<Boolean>>(Resource.Loading)
     val deactivateShopState: StateFlow<Resource<Boolean>> = _deactivateShopState.asStateFlow()
-
 
     // Toggle Status
     private val _toggleStatusState = MutableStateFlow<Resource<Boolean>>(Resource.Loading)
@@ -71,12 +69,10 @@ class ShopViewModel @Inject constructor(
     // Logo Upload
     private val _logoUploadState = MutableStateFlow<Resource<String>>(Resource.Loading)
     val logoUploadState: StateFlow<Resource<String>> = _logoUploadState.asStateFlow()
+
     // Logo Remove
     private val _logoRemoveState = MutableStateFlow<Resource<Boolean>>(Resource.Loading)
     val logoRemoveState: StateFlow<Resource<Boolean>> = _logoRemoveState.asStateFlow()
-
-
-
 
     // Combined Loading State for UI
     val isLoading: StateFlow<Boolean> = combine(
@@ -90,7 +86,8 @@ class ShopViewModel @Inject constructor(
         _logoUploadState,
         _logoRemoveState,
         _coverUploadState,
-        _coverRemoveState
+        _coverRemoveState,
+        _shopRatingState
     ) { states ->
         states.any { it is Resource.Loading }
     }.stateIn(
@@ -99,22 +96,23 @@ class ShopViewModel @Inject constructor(
         initialValue = false
     )
 
-//        ======> shop creation  <======
+    // ============= SHOP CREATION =============
+
     fun createShop(
-    ownerId: String,
-    shopName: String,
-    category: String,
-    description: String,
-    address: String,
-    city: String,
-    pincode: String,
-    contactNumber: String,
-    email: String,
-    latitude: Double,
-    longitude: Double,
-    openingTime: String,
-    closingTime: String,
-    operatingHours: Map<String, OperatingHour> = emptyMap()
+        ownerId: String,
+        shopName: String,
+        category: String,
+        description: String,
+        address: String,
+        city: String,
+        pincode: String,
+        contactNumber: String,
+        email: String,
+        latitude: Double,
+        longitude: Double,
+        openingTime: String,
+        closingTime: String,
+        operatingHours: Map<String, OperatingHour> = emptyMap()
     ) {
         viewModelScope.launch {
             // Validate inputs
@@ -127,7 +125,7 @@ class ShopViewModel @Inject constructor(
                 ownerId = ownerId,
                 shopName = shopName,
                 category = category,
-                description = description, // location missing
+                description = description,
                 location = com.google.firebase.firestore.GeoPoint(latitude, longitude),
                 address = address,
                 city = city,
@@ -154,16 +152,15 @@ class ShopViewModel @Inject constructor(
             shopRepository.createShop(shop).collect { result ->
                 _createShopState.value = result
                 if (result is Resource.Success) {
-//                    loadShopDetails(result.data.shopId)
-                    commonShopViewModel.getShopDetails(result.data.shopId)
+                    getShopDetails(result.data.shopId)
                 }
             }
         }
     }
 
-//    ======> load shop details  <======
+    // ============= LOAD SHOP DETAILS =============
 
-    fun loadShopDetails(shopId: String) {
+    fun getShopDetails(shopId: String) {
         if (shopId.isBlank()) {
             _shopDetailsState.value = Resource.Error("Shop ID cannot be empty")
             return
@@ -171,6 +168,19 @@ class ShopViewModel @Inject constructor(
 
         viewModelScope.launch {
             shopRepository.getShopDetails(shopId).collect { result ->
+                _shopDetailsState.value = result
+            }
+        }
+    }
+
+    fun listenToShopDetails(shopId: String) {
+        if (shopId.isBlank()) {
+            _shopDetailsState.value = Resource.Error("Shop ID cannot be empty")
+            return
+        }
+
+        viewModelScope.launch {
+            shopRepository.listenToShopDetails(shopId).collect { result ->
                 _shopDetailsState.value = result
             }
         }
@@ -186,8 +196,7 @@ class ShopViewModel @Inject constructor(
             shopRepository.getShopByOwner(ownerId).collect { result ->
                 _myShopState.value = result
                 if (result is Resource.Success) {
-//                    loadShopDetails(result.data.shopId)
-                    commonShopViewModel.getShopDetails(result.data.shopId)
+                    getShopDetails(result.data.shopId)
                 }
             }
         }
@@ -203,10 +212,8 @@ class ShopViewModel @Inject constructor(
             shopRepository.getShopByOwner(ownerId).collect { result ->
                 when (result) {
                     is Resource.Success -> {
-                        launch {
-                            shopRepository.listenToShopDetails(result.data.shopId).collect { detailsResult ->
-                                _myShopState.value = detailsResult
-                            }
+                        shopRepository.listenToShopDetails(result.data.shopId).collect { detailsResult ->
+                            _myShopState.value = detailsResult
                         }
                     }
                     is Resource.Error -> {
@@ -215,14 +222,28 @@ class ShopViewModel @Inject constructor(
                     is Resource.Loading -> {
                         _myShopState.value = Resource.Loading
                     }
-
                     else -> {}
                 }
             }
         }
     }
 
-//    ======> shop creation  <======
+    // ============= SHOP RATING =============
+
+    fun getShopRating(shopId: String) {
+        if (shopId.isBlank()) {
+            _shopRatingState.value = Resource.Error("Shop ID cannot be empty")
+            return
+        }
+
+        viewModelScope.launch {
+            shopRepository.getShopRating(shopId).collect { result ->
+                _shopRatingState.value = result
+            }
+        }
+    }
+
+    // ============= SHOP UPDATES =============
 
     fun updateShopInfo(shopId: String, shopName: String, description: String, category: String) {
         val updates = mapOf(
@@ -266,7 +287,6 @@ class ShopViewModel @Inject constructor(
         performUpdate(shopId, mapOf("averageOrderValue" to averageOrderValue))
     }
 
-
     fun updateShopLocation(shopId: String, latitude: Double, longitude: Double) {
         val updates = mapOf(
             "location" to com.google.firebase.firestore.GeoPoint(latitude, longitude)
@@ -301,15 +321,13 @@ class ShopViewModel @Inject constructor(
             shopRepository.updateShopProfile(shopId, updates).collect { result ->
                 _updateShopState.value = result
                 if (result is Resource.Success) {
-//                    loadShopDetails(shopId)
-                    commonShopViewModel.getShopDetails(shopId)
+                    getShopDetails(shopId)
                 }
             }
         }
     }
 
-
-//    ======> shop status management  <======
+    // ============= SHOP STATUS MANAGEMENT =============
 
     fun toggleShopOpenStatus(shopId: String, isOpen: Boolean) {
         if (shopId.isBlank()) {
@@ -339,7 +357,7 @@ class ShopViewModel @Inject constructor(
         }
     }
 
-//    ======> shop statistics  <======
+    // ============= SHOP STATISTICS =============
 
     fun updateShopStatistics(
         shopId: String,
@@ -374,8 +392,7 @@ class ShopViewModel @Inject constructor(
         )
     }
 
-
-    //    ======> shop deletion  <======
+    // ============= SHOP DELETION =============
 
     fun deactivateShop(shopId: String) {
         if (shopId.isBlank()) {
@@ -391,7 +408,7 @@ class ShopViewModel @Inject constructor(
         }
     }
 
-    // ======> logo image management <======
+    // ============= LOGO IMAGE MANAGEMENT =============
 
     fun uploadLogo(shopId: String, imageUri: Uri) {
         if (shopId.isBlank()) {
@@ -404,8 +421,7 @@ class ShopViewModel @Inject constructor(
             shopRepository.uploadShopLogo(shopId, imageUri).collect { result ->
                 _logoUploadState.value = result
                 if (result is Resource.Success) {
-//                    loadShopDetails(shopId)
-                    commonShopViewModel.getShopDetails(shopId)
+                    getShopDetails(shopId)
                 }
             }
         }
@@ -422,8 +438,7 @@ class ShopViewModel @Inject constructor(
             shopRepository.removeShopLogo(shopId).collect { result ->
                 _logoRemoveState.value = result
                 if (result is Resource.Success) {
-//                    loadShopDetails(shopId)
-                    commonShopViewModel.getShopDetails(shopId)
+                    getShopDetails(shopId)
                 }
             }
         }
@@ -431,21 +446,18 @@ class ShopViewModel @Inject constructor(
 
     fun updateLogo(shopId: String, newImageUri: Uri) {
         viewModelScope.launch {
-            // Pehle purana hatao
             removeLogo(shopId)
-
-            // Jab removal complete ho jaye, naya upload karo
-            launch {
-                _logoRemoveState.collect { removeResult ->
-                    if (removeResult is Resource.Success) {
-                        uploadLogo(shopId, newImageUri)
-                    }
+            // Wait a bit then upload new one
+            _logoRemoveState.collect { removeResult ->
+                if (removeResult is Resource.Success) {
+                    uploadLogo(shopId, newImageUri)
+                    return@collect
                 }
             }
         }
     }
 
-    // ======> cover image management <======
+    // ============= COVER IMAGE MANAGEMENT =============
 
     fun uploadCover(shopId: String, imageUri: Uri) {
         if (shopId.isBlank()) {
@@ -458,8 +470,7 @@ class ShopViewModel @Inject constructor(
             shopRepository.uploadShopCover(shopId, imageUri).collect { result ->
                 _coverUploadState.value = result
                 if (result is Resource.Success) {
-//                    loadShopDetails(shopId)
-                    commonShopViewModel.getShopDetails(shopId)
+                    getShopDetails(shopId)
                 }
             }
         }
@@ -476,8 +487,7 @@ class ShopViewModel @Inject constructor(
             shopRepository.removeShopCover(shopId).collect { result ->
                 _coverRemoveState.value = result
                 if (result is Resource.Success) {
-//                    loadShopDetails(shopId)
-                    commonShopViewModel.getShopDetails(shopId)
+                    getShopDetails(shopId)
                 }
             }
         }
@@ -485,59 +495,108 @@ class ShopViewModel @Inject constructor(
 
     fun updateCover(shopId: String, newImageUri: Uri) {
         viewModelScope.launch {
-            // Pehle purana hatao
             removeCover(shopId)
-
-            // Jab removal complete ho jaye, naya upload karo
-            launch {
-                _coverRemoveState.collect { removeResult ->
-                    if (removeResult is Resource.Success) {
-                        uploadCover(shopId, newImageUri)
-                    }
+            _coverRemoveState.collect { removeResult ->
+                if (removeResult is Resource.Success) {
+                    uploadCover(shopId, newImageUri)
+                    return@collect
                 }
             }
         }
     }
 
+    // ============= HELPER FUNCTIONS (MOVED FROM COMMON) =============
 
-    // ============= DELEGATED COMMON FUNCTIONS =============
+    fun isShopOpen(shop: Shop?): Boolean {
+        return shop != null && shop.isOpen && shop.isActive
+    }
 
-    // Shop Details - Use CommonVM
-    fun getShopDetails(shopId: String) = commonShopViewModel.getShopDetails(shopId)
+    fun getShopStatusMessage(shop: Shop?): String {
+        if (shop == null) return "Shop not found"
+        return when {
+            !shop.isActive -> "Permanently Closed"
+            !shop.isOpen -> "Currently Closed"
+            else -> "Open • ${shop.openingTime} - ${shop.closingTime}"
+        }
+    }
 
-    // Shop Rating - Use CommonVM
-    fun getShopRating(shopId: String) = commonShopViewModel.getShopRating(shopId)
+    fun formatShopAddress(shop: Shop?): String {
+        if (shop == null) return ""
+        return buildString {
+            append(shop.address)
+            if (shop.city.isNotBlank()) append(", ${shop.city}")
+            if (shop.pincode.isNotBlank()) append(" - ${shop.pincode}")
+        }
+    }
 
-    // Status Helpers - Use CommonVM
-    fun isShopOpen(shop: Shop?) = commonShopViewModel.isShopOpen(shop)
-    fun getShopStatusMessage(shop: Shop?) = commonShopViewModel.getShopStatusMessage(shop)
+    fun getShopTimings(shop: Shop?): String {
+        if (shop == null) return ""
+        return "${shop.openingTime} to ${shop.closingTime}"
+    }
 
-    // Display Helpers - Use CommonVM
-    fun formatShopAddress(shop: Shop?) = commonShopViewModel.formatShopAddress(shop)
-    fun getShopTimings(shop: Shop?) = commonShopViewModel.getShopTimings(shop)
-    fun getFormattedRating(shop: Shop?) = commonShopViewModel.getFormattedRating(shop)
-    fun getCategoryDisplay(category: String) = commonShopViewModel.getCategoryDisplay(category)
+    fun getFormattedRating(shop: Shop?): String {
+        if (shop == null) return ""
+        return if (shop.totalRatings > 0) {
+            String.format("%.1f (%d ratings)", shop.rating, shop.totalRatings)
+        } else {
+            "No ratings yet"
+        }
+    }
 
-    // Business Logic - Use CommonVM
-    fun canAcceptOrders(shop: Shop?) = commonShopViewModel.canAcceptOrders(shop)
+    fun canAcceptOrders(shop: Shop?): Boolean {
+        return shop != null &&
+                shop.isOpen &&
+                shop.isActive &&
+                shop.totalItems > 0
+    }
 
-    // Image Helpers - Use CommonVM (removed duplicate implementation)
+    fun getCategoryDisplay(category: String): String {
+        return when (category.lowercase()) {
+            "restaurant" -> "Restaurant"
+            "grocery" -> "Grocery Store"
+            "medical" -> "Medical Store"
+            "bakery" -> "Bakery"
+            "electronics" -> "Electroics"
+            "fashion" -> "Fashion"
+            else -> category
+        }
+    }
 
+    fun hasLogo(shop: Shop?): Boolean {
+        return shop?.hasLogo == true && shop.logo.isNotBlank()
+    }
 
-    // Profile Completion - Use CommonVM
-    fun getShopCompletionPercentage(shop: Shop?) = commonShopViewModel.getShopCompletionPercentage(shop)
+    fun hasCover(shop: Shop?): Boolean {
+        return shop?.hasCover == true && shop.coverImage.isNotBlank()
+    }
 
+    fun getLogo(shop: Shop?): String {
+        return shop?.logo ?: ""
+    }
 
-    // ======> helper functions <======
+    fun getCover(shop: Shop?): String {
+        return shop?.coverImage ?: ""
+    }
 
-    fun hasLogo(shop: Shop?) = commonShopViewModel.hasLogo(shop)
-    fun hasCover(shop: Shop?) = commonShopViewModel.hasCover(shop)
-    fun getLogo(shop: Shop?) = commonShopViewModel.getLogo(shop)
-    fun getCover(shop: Shop?) = commonShopViewModel.getCover(shop)
+    fun getShopCompletionPercentage(shop: Shop?): Int {
+        if (shop == null) return 0
 
+        var score = 0
+        val totalFields = 8
 
+        if (shop.shopName.isNotBlank()) score++
+        if (shop.description.isNotBlank()) score++
+        if (shop.category.isNotBlank()) score++
+        if (shop.address.isNotBlank()) score++
+        if (shop.contactNumber.isNotBlank()) score++
+        if (hasLogo(shop)) score++
+        if (hasCover(shop)) score++
+        if (shop.operatingHours.isNotEmpty()) score++
 
-    //    ======> state reset functions <======
+        return (score * 100) / totalFields
+    }
+
+    // ============= STATE RESET FUNCTIONS =============
 
     fun resetCreateShopState() {
         _createShopState.value = Resource.Loading
@@ -551,6 +610,14 @@ class ShopViewModel @Inject constructor(
         _deactivateShopState.value = Resource.Loading
     }
 
+    fun resetShopDetails() {
+        _shopDetailsState.value = Resource.Loading
+    }
+
+    fun resetShopRating() {
+        _shopRatingState.value = Resource.Loading
+    }
+
     fun resetAllStates() {
         _shopDetailsState.value = Resource.Loading
         _myShopState.value = Resource.Loading
@@ -561,25 +628,21 @@ class ShopViewModel @Inject constructor(
         _updateStatsState.value = Resource.Loading
         _shopRatingState.value = Resource.Loading
         _coverUploadState.value = Resource.Loading
-        commonShopViewModel.resetAllStates()
+        _logoUploadState.value = Resource.Loading
+        _logoRemoveState.value = Resource.Loading
+        _coverRemoveState.value = Resource.Loading
     }
 
-    //    ======> refresh functions  <======
-
-//    fun refreshShopDetails(shopId: String) {
-//        loadShopDetails(shopId)
-//    }
+    // ============= REFRESH FUNCTIONS =============
 
     fun refreshMyShop(ownerId: String) {
         getMyShop(ownerId)
     }
 
-    //    ======> cleanup  <======
+    // ============= CLEANUP =============
 
     override fun onCleared() {
         super.onCleared()
         resetAllStates()
     }
-
-
 }
