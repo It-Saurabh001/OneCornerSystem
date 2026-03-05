@@ -1,6 +1,7 @@
 package com.saurabh.onecornersystem.presentation.shopowner
 
 
+import android.annotation.SuppressLint
 import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -18,6 +19,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Person
@@ -60,7 +62,20 @@ fun ShopOwnerHomeScreen1(
     ownerId: String,
     viewModel: ShopViewModel = hiltViewModel()
 ) {
+    Log.d("ShopOwnerHome_Screen", "ShopOwnerHomeScreen1: Displayed with ownerId=$ownerId")
     val myShopState by viewModel.myShopState.collectAsState()
+
+    // अगर ownerId empty है तो loading दिखाओ
+    if (ownerId.isEmpty()) {
+        Log.d("ShopOwnerHome_Screen", "ShopOwnerHomeScreen1: Waiting for ownerId...")
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            CircularProgressIndicator()
+        }
+        return
+    }
 
     LaunchedEffect(ownerId) {
         viewModel.getMyShop(ownerId)
@@ -72,31 +87,61 @@ fun ShopOwnerHomeScreen1(
             TopAppBar(
                 title = { Text("My Shop Dashboard") },
                 actions = {
-                    IconButton(onClick = { navController.navigate("profile") }) {
+                    IconButton(onClick = {
+                        Log.d("ShopOwnerHome_Screen", "ShopOwnerHomeScreen1: Profile button clicked")
+                        navController.navigate("profile")
+                    }) {
                         Icon(Icons.Default.Person, contentDescription = "Profile")
                     }
                 }
             )
         },
         floatingActionButton = {
-            FloatingActionButton(
-                onClick = {
-                    when (val shop = (myShopState as? Resource.Success)?.data) {
-                        null -> navController.navigate("create_shop")
-                        else -> navController.navigate("edit_shop/${shop.shopId}")
+            when (val state = myShopState) {
+                is Resource.Success -> {
+                    val shop = state.data
+                    // 🎯 Add Item का option हमेशा दिखाओ
+                    FloatingActionButton(
+                        onClick = {
+                            when (shop.shopType) {
+                                ShopType.PRODUCT -> {
+                                    Log.d("ShopOwnerHome_Screen", "ShopOwnerHomeScreen1: Add Product clicked for shopId=${shop.shopId}")
+                                    navController.navigate("add_product/${shop.shopId}")
+                                }
+                                ShopType.SERVICE -> {
+                                    Log.d("ShopOwnerHome_Screen", "ShopOwnerHomeScreen1: Add Service clicked for shopId=${shop.shopId}")
+                                    navController.navigate("add_service/${shop.shopId}")
+                                }}
+                        }
+                    ) {
+                        Icon(
+                            Icons.Default.Add,
+                            contentDescription = if (shop.shopType == ShopType.PRODUCT)
+                                "Add Product" else "Add Service"
+                        )
                     }
                 }
-            ) {
-                Icon(
-                    if (myShopState is Resource.Success) Icons.Default.Edit
-                    else Icons.Default.Add,
-                    contentDescription = "Manage Shop"
-                )
+                is Resource.Error -> {
+                    // Shop नहीं मिली - Create Shop का option
+                    FloatingActionButton(
+                        onClick = {
+                            Log.d("ShopOwnerHome_Screen", "ShopOwnerHomeScreen1: Create Shop clicked")
+                            navController.navigate("create_shop")
+                        }
+                    ) {
+                        Icon(
+                            Icons.Default.Add,
+                            contentDescription = "Create Shop"
+                        )
+                    }
+                }
+                else -> {}
             }
         }
     ) { paddingValues ->
         when (val state = myShopState) {
             is Resource.Loading -> {
+                Log.d("ShopOwnerHome_Screen", "ShopOwnerHomeScreen1: Loading state")
                 Box(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
@@ -106,7 +151,8 @@ fun ShopOwnerHomeScreen1(
             }
             is Resource.Success -> {
                 val shop = state.data
-                Log.d("TAG", "ShopOwnerHomeScreen1: ${Resource.Success(shop)}")
+                Log.d("ShopOwnerHome_Screen", "ShopOwnerHomeScreen1: Shop loaded - shopId=${shop.shopId}, totalItems=${shop.totalItems}, totalOrders=${shop.totalOrders}, totalRevenue=${shop.totalRevenue}")
+
                 LazyColumn(
                     modifier = Modifier
                         .fillMaxSize()
@@ -124,6 +170,13 @@ fun ShopOwnerHomeScreen1(
 
                     item {
                         StatsGrid(shop = shop)
+                    }
+
+                    // 🎯 अगर items = 0 हैं, तो Empty State Message दिखाओ
+                    if (shop.totalItems == 0) {
+                        item {
+                            EmptyItemsMessage(shop = shop)
+                        }
                     }
 
                     item {
@@ -160,24 +213,76 @@ fun ShopOwnerHomeScreen1(
                 }
             }
             is Resource.Error -> {
-
+                Log.d("ShopOwnerHome_Screen", "ShopOwnerHomeScreen1: Error - ${state.message}")
                 Box(
-
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
                 ) {
-                    Log.d("TAG", "ShopOwnerHomeScreen1: ${Resource.Error(state.message)}")
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Text("No shop found")
                         Spacer(modifier = Modifier.height(8.dp))
-                        Button(onClick = { navController.navigate("create_shop") }) {
+                        Button(onClick = {
+                            Log.d("ShopOwnerHome_Screen", "ShopOwnerHomeScreen1: Create Shop button clicked from error state")
+                            navController.navigate("create_shop")
+                        }) {
                             Text("Create Shop")
                         }
                     }
                 }
             }
-
             else -> {}
+        }
+    }
+}
+
+/**
+ * 🎯 EMPTY ITEMS MESSAGE - जब totalItems = 0 हो, सिर्फ message दिखाओ
+ */
+@Composable
+fun EmptyItemsMessage(shop: Shop) {
+    Log.d("ShopOwnerHome_Empty", "EmptyItemsMessage: Displayed for shopType=${shop.shopType}")
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.primaryContainer
+        )
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = if (shop.shopType == ShopType.PRODUCT)
+                    Icons.Default.ShoppingBag
+                else
+                    Icons.Default.Build,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(24.dp)
+            )
+
+            Spacer(modifier = Modifier.width(12.dp))
+
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = if (shop.shopType == ShopType.PRODUCT)
+                        "No Products Yet"
+                    else
+                        "No Services Yet",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 16.sp
+                )
+                Text(
+                    text = if (shop.shopType == ShopType.PRODUCT)
+                        "Click the + button to add your first product"
+                    else
+                        "Click the + button to add your first service",
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                )
+            }
         }
     }
 }
@@ -188,6 +293,7 @@ fun ShopHeaderCard(
     isOpen: Boolean,
     statusMessage: String
 ) {
+    Log.d("ShopOwnerHome_Header", "ShopHeaderCard: Displayed for shopName=${shop.shopName}, category=${shop.category}, isOpen=$isOpen")
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
@@ -267,8 +373,10 @@ fun ShopHeaderCard(
     }
 }
 
+@SuppressLint("DefaultLocale")
 @Composable
 fun StatsGrid(shop: Shop) {
+    Log.d("ShopOwnerHome_Stats", "StatsGrid: Displayed with totalItems=${shop.totalItems}, totalOrders=${shop.totalOrders}, totalRevenue=${shop.totalRevenue}")
     Card(
         modifier = Modifier.fillMaxWidth()
     ) {
@@ -283,9 +391,9 @@ fun StatsGrid(shop: Shop) {
                 label = if (shop.shopType == ShopType.PRODUCT) "Products" else "Services"
             )
             VerticalDivider(
-                modifier = Modifier.height(40.dp),
-                thickness = 1.dp,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f)
+                    modifier = Modifier.height(40.dp),
+            thickness = 1.dp,
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f)
             )
             StatItem(
                 value = shop.totalOrders.toString(),
@@ -306,6 +414,7 @@ fun StatsGrid(shop: Shop) {
 
 @Composable
 fun StatItem(value: String, label: String) {
+    Log.d("ShopOwnerHome_Stat", "StatItem: Displayed with value=$value, label=$label")
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Text(
             text = value,
@@ -327,6 +436,7 @@ fun QuickActionsRow(
     shopType: ShopType,
     navController: NavController
 ) {
+    Log.d("ShopOwnerHome_Actions", "QuickActionsRow: Displayed for shopId=$shopId, shopType=$shopType")
     Card(
         modifier = Modifier.fillMaxWidth()
     ) {
@@ -347,27 +457,39 @@ fun QuickActionsRow(
                 QuickActionButton1(
                     icon = Icons.Default.Edit,
                     label = "Edit Shop",
-                    onClick = { navController.navigate("edit_shop/$shopId") }
+                    onClick = {
+                        Log.d("ShopOwnerHome_Actions", "QuickActionsRow: Edit Shop clicked for shopId=$shopId")
+                        navController.navigate("edit_shop/$shopId")
+                    }
                 )
 
                 if (shopType == ShopType.PRODUCT) {
                     QuickActionButton1(
                         icon = Icons.Default.Add,
                         label = "Add Product",
-                        onClick = { navController.navigate("add_product/$shopId") }
+                        onClick = {
+                            Log.d("ShopOwnerHome_Actions", "QuickActionsRow: Add Product clicked for shopId=$shopId")
+                            navController.navigate("add_product/$shopId")
+                        }
                     )
                 } else {
                     QuickActionButton1(
                         icon = Icons.Default.Add,
                         label = "Add Service",
-                        onClick = { navController.navigate("add_service/$shopId") }
+                        onClick = {
+                            Log.d("ShopOwnerHome_Actions", "QuickActionsRow: Add Service clicked for shopId=$shopId")
+                            navController.navigate("add_service/$shopId")
+                        }
                     )
                 }
 
                 QuickActionButton1(
                     icon = Icons.Default.ShoppingBag,
                     label = "Orders",
-                    onClick = { navController.navigate("orders/$shopId") }
+                    onClick = {
+                        Log.d("ShopOwnerHome_Actions", "QuickActionsRow: Orders clicked for shopId=$shopId")
+                        navController.navigate("orders/$shopId")
+                    }
                 )
             }
         }
@@ -380,6 +502,7 @@ fun QuickActionButton1(
     label: String,
     onClick: () -> Unit
 ) {
+    Log.d("ShopOwnerHome_Button", "QuickActionButton1: Displayed with label=$label")
     Column(
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
@@ -398,12 +521,15 @@ fun QuickActionButton1(
     }
 }
 
-// Placeholder sections - to be implemented with respective repositories
 @Composable
 fun ProductSection(shopId: String, navController: NavController) {
+    Log.d("ShopOwnerHome_Product", "ProductSection: Displayed for shopId=$shopId")
     Card(
         modifier = Modifier.fillMaxWidth(),
-        onClick = { navController.navigate("products/$shopId") }
+        onClick = {
+            Log.d("ShopOwnerHome_Product", "ProductSection: Clicked to view products for shopId=$shopId")
+            navController.navigate("products/$shopId")
+        }
     ) {
         Row(
             modifier = Modifier
@@ -431,9 +557,13 @@ fun ProductSection(shopId: String, navController: NavController) {
 
 @Composable
 fun ServiceSection(shopId: String, navController: NavController) {
+    Log.d("ShopOwnerHome_Service", "ServiceSection: Displayed for shopId=$shopId")
     Card(
         modifier = Modifier.fillMaxWidth(),
-        onClick = { navController.navigate("services/$shopId") }
+        onClick = {
+            Log.d("ShopOwnerHome_Service", "ServiceSection: Clicked to view services for shopId=$shopId")
+            navController.navigate("services/$shopId")
+        }
     ) {
         Row(
             modifier = Modifier
@@ -461,9 +591,13 @@ fun ServiceSection(shopId: String, navController: NavController) {
 
 @Composable
 fun RecentOrdersSection(shopId: String, navController: NavController) {
+    Log.d("ShopOwnerHome_Orders", "RecentOrdersSection: Displayed for shopId=$shopId")
     Card(
         modifier = Modifier.fillMaxWidth(),
-        onClick = { navController.navigate("orders/$shopId") }
+        onClick = {
+            Log.d("ShopOwnerHome_Orders", "RecentOrdersSection: Clicked to view orders for shopId=$shopId")
+            navController.navigate("orders/$shopId")
+        }
     ) {
         Row(
             modifier = Modifier

@@ -5,8 +5,10 @@ import com.google.firebase.Firebase
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.auth
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.GeoPoint
 import com.google.firebase.firestore.firestore
 import com.saurabh.onecornersystem.data.local.SessionManager
+import com.saurabh.onecornersystem.data.model.Shop
 import com.saurabh.onecornersystem.data.model.ShopType
 import com.saurabh.onecornersystem.data.model.User
 import com.saurabh.onecornersystem.utils.Resource
@@ -55,6 +57,44 @@ class AuthRepository @Inject constructor(
                 .document(firebaseUser.uid)
                 .set(user)
                 .await()
+
+            if (role == "shop_owner" && shopType != null){
+                val shop = Shop(
+                    shopId = firebaseUser.uid,
+                    shopName = "",
+                    shopType = shopType,
+                    category = "",
+                    description = "",
+                    location = GeoPoint(0.0,0.0),
+                    address = "",
+                    city = "",
+                    pincode = "",
+                    contactNumber = phone,
+                    email = email,
+                    logo = "",
+                    coverImage = "",
+                    openingTime = "09:00",
+                    closingTime = "21:00",
+                    isOpen = true,
+                    isActive = true,
+                    rating = 0.0,
+                    totalRatings = 0,
+                    totalItems = 0,
+                    totalOrders = 0,
+                    totalRevenue = 0.0,
+                    averageOrderValue = 0.0,
+                    operatingHours = emptyMap(),
+                    hasLogo = false,
+                    hasCover = false,
+                    createdAt = com.google.firebase.Timestamp.now()
+                )
+                firestore.collection("shops")
+                    .document(firebaseUser.uid)
+                    .set(shop)
+                    .await()
+
+                Log.d("AuthRepository", "✅ Shop created for owner: ${firebaseUser.uid}")
+            }
 
             // 4. Save session
             sessionManager.saveLoginSession(firebaseUser.uid, email, role)
