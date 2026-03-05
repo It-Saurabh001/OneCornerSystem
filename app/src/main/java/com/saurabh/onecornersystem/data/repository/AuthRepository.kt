@@ -60,8 +60,9 @@ class AuthRepository @Inject constructor(
 
             if (role == "shop_owner" && shopType != null){
                 val shop = Shop(
-                    shopId = firebaseUser.uid,
+                    shopId = firestore.collection("shops").document().id,
                     shopName = "",
+                    ownerId = firebaseUser.uid,
                     shopType = shopType,
                     category = "",
                     description = "",

@@ -2,15 +2,19 @@ package com.saurabh.onecornersystem.presentation.navigation
 
 import android.util.Log
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -43,6 +47,7 @@ import com.saurabh.onecornersystem.presentation.shopowner.ShopOwnerHomeScreen
 import com.saurabh.onecornersystem.presentation.shopowner.ShopOwnerHomeScreen1
 import com.saurabh.onecornersystem.presentation.shopowner.viewmodel.ShopViewModel
 import com.saurabh.onecornersystem.presentation.splash.SplashScreen
+import com.saurabh.onecornersystem.utils.Resource
 
 
 @Composable
@@ -213,13 +218,58 @@ fun AppNavGraph(
             arguments = listOf(navArgument("shopId") { type = NavType.StringType })
         ) { backStackEntry ->
             val shopId = backStackEntry.arguments?.getString("shopId") ?: ""
-            Log.d("NavGraph_EditShop", "EditShop Screen displayed - shopId: $shopId")
-            // You'll need to pass the shop object - this is a placeholder
-            // Ideally fetch shop from ViewModel using shopId
-            EditShopScreen(
-                shop = Shop(shopId = shopId), // Replace with actual shop
-                navController = navController
-            )
+            val myShopState by shopViewModel.myShopState.collectAsState()
+
+            Log.d("NavGraph_EditShop", "EditShop Screen - shopId: $shopId, state: ${myShopState.javaClass.simpleName}")
+
+            LaunchedEffect(shopId) {
+                if (shopId.isNotEmpty()) {
+                    Log.d("NavGraph_EditShop", "Fetching shop data for shopId: $shopId")
+                    shopViewModel.getShopById(shopId)
+                }
+            }
+
+            when (val state = myShopState) {
+                is Resource.Loading -> {
+                    Log.d("NavGraph_EditShop", "Loading shop data")
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator()
+                    }
+                }
+                is Resource.Success -> {
+                    state.data?.let { shop ->
+                        Log.d("NavGraph_EditShop", "Shop loaded - name: ${shop.shopName}, id: ${shop.shopId}")
+                        EditShopScreen(
+                            shop = shop,
+                            navController = navController
+                        )
+                    }
+                }
+                is Resource.Error -> {
+                    Log.d("NavGraph_EditShop", "Error loading shop - ${state.message}")
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text("Error: ${state.message}")
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Button(onClick = {
+                                Log.d("NavGraph_EditShop", "Retry clicked")
+                                shopViewModel.getShopById(shopId)
+                            }) {
+                                Text("Retry")
+                            }
+                        }
+                    }
+                }
+                else -> {
+                    Log.d("NavGraph_EditShop", "Unknown state")
+                }
+            }
         }
 
         // ============= PRODUCT ROUTES =============

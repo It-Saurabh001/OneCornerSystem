@@ -1,6 +1,7 @@
 package com.saurabh.onecornersystem.presentation.shopowner
 
 import android.net.Uri
+import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -66,6 +67,8 @@ fun EditShopScreen(
     navController: NavController,
     viewModel: ShopViewModel = hiltViewModel()
 ) {
+    Log.d("EditShopScreen", "Displayed - shopId: ${shop.shopId}, shopName: ${shop.shopName}, shopType: ${shop.shopType}")
+
     var shopName by remember { mutableStateOf(shop.shopName) }
     var description by remember { mutableStateOf(shop.description) }
     var address by remember { mutableStateOf(shop.address) }
@@ -85,8 +88,14 @@ fun EditShopScreen(
         contract = ActivityResultContracts.PickVisualMedia(),
         onResult = { uri ->
             when (showImageOptionsFor) {
-                "logo" -> logoUri = uri
-                "cover" -> coverUri = uri
+                "logo" -> {
+                    Log.d("EditShopScreen", "Logo image selected")
+                    logoUri = uri
+                }
+                "cover" -> {
+                    Log.d("EditShopScreen", "Cover image selected")
+                    coverUri = uri
+                }
             }
             showImageOptionsFor = null
         }
@@ -96,6 +105,7 @@ fun EditShopScreen(
 
     LaunchedEffect(updateState) {
         if (updateState is Resource.Success) {
+            Log.d("EditShopScreen", "Shop updated successfully, navigating back")
             navController.popBackStack()
         }
     }
@@ -353,12 +363,20 @@ fun EditShopScreen(
 
                 Button(
                     onClick = {
+                        Log.d("EditShopScreen", "Update Shop clicked - shopId: ${shop.shopId}")
+                        Log.d("EditShopScreen", "Updated values - name: $shopName, city: $city, openingTime: $openingTime, closingTime: $closingTime")
                         viewModel.updateShopInfo(shop.shopId, shopName, description, shop.category)
                         viewModel.updateContactDetails(shop.shopId, contactNumber, email)
                         viewModel.updateShopAddress(shop.shopId, address, city, pincode)
                         viewModel.updateOperatingHours(shop.shopId, openingTime, closingTime)
-                        logoUri?.let { viewModel.uploadLogo(shop.shopId, it) }
-                        coverUri?.let { viewModel.uploadCover(shop.shopId, it) }
+                        logoUri?.let {
+                            Log.d("EditShopScreen", "Uploading logo")
+                            viewModel.uploadLogo(shop.shopId, it)
+                        }
+                        coverUri?.let {
+                            Log.d("EditShopScreen", "Uploading cover")
+                            viewModel.uploadCover(shop.shopId, it)
+                        }
                     },
                     modifier = Modifier.fillMaxWidth(),
                     enabled = !(updateState is Resource.Loading)
@@ -374,16 +392,25 @@ fun EditShopScreen(
     }
 
     showImageOptionsFor?.let { type ->
+        Log.d("EditShopScreen", "ImagePickerDialog shown for type: $type")
         ImagePickerDialog(
             showDialog = true,
-            onDismiss = { showImageOptionsFor = null },
-            onCameraClick = { showCameraFor = type },
+            onDismiss = {
+                Log.d("EditShopScreen", "ImagePickerDialog dismissed")
+                showImageOptionsFor = null
+            },
+            onCameraClick = {
+                Log.d("EditShopScreen", "Camera clicked for $type")
+                showCameraFor = type
+            },
             onGalleryClick = {
+                Log.d("EditShopScreen", "Gallery clicked for $type")
                 photoPickerLauncher.launch(
                     PickVisualMediaRequest(mediaType = ActivityResultContracts.PickVisualMedia.ImageOnly)
                 )
             },
             onRemoveClick = {
+                Log.d("EditShopScreen", "Remove image clicked for $type")
                 when (type) {
                     "logo" -> logoUri = null
                     "cover" -> coverUri = null

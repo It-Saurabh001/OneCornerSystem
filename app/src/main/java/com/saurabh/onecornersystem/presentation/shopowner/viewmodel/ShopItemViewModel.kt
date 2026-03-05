@@ -28,48 +28,49 @@ class ShopItemViewModel @Inject constructor(
 
     // ============= STATES =============
 
-    private val _currentItemState = MutableStateFlow<Resource<ShopItem>>(Resource.Loading)
+    private val _currentItemState = MutableStateFlow<Resource<ShopItem>>(Resource.Idle)
     val currentItemState: StateFlow<Resource<ShopItem>> = _currentItemState.asStateFlow()
 
     // Products
-    private val _productsState = MutableStateFlow<Resource<List<ShopItem>>>(Resource.Loading)
+    private val _productsState = MutableStateFlow<Resource<List<ShopItem>>>(Resource.Idle)
     val productsState: StateFlow<Resource<List<ShopItem>>> = _productsState.asStateFlow()
 
     // Services
-    private val _servicesState = MutableStateFlow<Resource<List<ShopItem>>>(Resource.Loading)
+    private val _servicesState = MutableStateFlow<Resource<List<ShopItem>>>(Resource.Idle)
     val servicesState: StateFlow<Resource<List<ShopItem>>> = _servicesState.asStateFlow()
 
     // Single Item
-    private val _itemState = MutableStateFlow<Resource<ShopItem>>(Resource.Loading)
+    private val _itemState = MutableStateFlow<Resource<ShopItem>>(Resource.Idle)
     val itemState: StateFlow<Resource<ShopItem>> = _itemState.asStateFlow()
 
     // Create/Update/Delete
-    private val _createItemState = MutableStateFlow<Resource<ShopItem>>(Resource.Loading)
+    private val _createItemState = MutableStateFlow<Resource<ShopItem>>(Resource.Idle)
     val createItemState: StateFlow<Resource<ShopItem>> = _createItemState.asStateFlow()
 
-    private val _updateItemState = MutableStateFlow<Resource<Boolean>>(Resource.Loading)
+    private val _updateItemState = MutableStateFlow<Resource<Boolean>>(Resource.Idle)
     val updateItemState: StateFlow<Resource<Boolean>> = _updateItemState.asStateFlow()
 
-    private val _deleteItemState = MutableStateFlow<Resource<Boolean>>(Resource.Loading)
+    private val _deleteItemState = MutableStateFlow<Resource<Boolean>>(Resource.Idle)
     val deleteItemState: StateFlow<Resource<Boolean>> = _deleteItemState.asStateFlow()
 
-    private val _imageUploadState = MutableStateFlow<Resource<String>>(Resource.Loading)
+    private val _imageUploadState = MutableStateFlow<Resource<String>>(Resource.Idle)
     val imageUploadState: StateFlow<Resource<String>> = _imageUploadState.asStateFlow()
 
     // Combined Loading State
-    val isLoading: StateFlow<Boolean> = combineLoadingStates()
-
-    private fun combineLoadingStates(): StateFlow<Boolean> {
-        // Simple implementation - can be enhanced with combine if needed
-        return MutableStateFlow(
-            _productsState.value is Resource.Loading ||
-                    _servicesState.value is Resource.Loading ||
-                    _createItemState.value is Resource.Loading ||
-                    _updateItemState.value is Resource.Loading ||
-                    _deleteItemState.value is Resource.Loading ||
-                    _imageUploadState.value is Resource.Loading
-        ).asStateFlow()
-    }
+    val isLoading: StateFlow<Boolean> = combine(
+        _productsState,
+        _servicesState,
+        _createItemState,
+        _updateItemState,
+        _deleteItemState,
+        _imageUploadState
+    ) { states ->
+        states.any { it is Resource.Loading }
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = false
+    )
 
     // ============= PRODUCTS =============
 
