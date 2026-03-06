@@ -30,6 +30,8 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import coil.compose.rememberAsyncImagePainter
+import com.saurabh.onecornersystem.presentation.components.Base64Image
+import com.saurabh.onecornersystem.presentation.components.rememberSmartImagePainter
 import com.saurabh.onecornersystem.data.model.ShopItem
 import com.saurabh.onecornersystem.presentation.CameraCaptureScreen
 import com.saurabh.onecornersystem.presentation.ImagePickerDialog
@@ -49,8 +51,8 @@ fun EditServiceScreen(
     var price by remember { mutableStateOf(service.price.toString()) }
     var duration by remember { mutableStateOf(service.duration) }
     var category by remember { mutableStateOf(service.category) }
-    var isHomeService by remember { mutableStateOf(service.isHomeService ?: false) }
-    var requiresAppointment by remember { mutableStateOf(service.requiresAppointment ?: false) }
+    var homeServiceEnabled by remember { mutableStateOf(service.homeService) }
+    var requiresAppointment by remember { mutableStateOf(service.requiresAppointment) }
 
     var imageUri by remember { mutableStateOf<Uri?>(null) }
     var showCamera by remember { mutableStateOf(false) }
@@ -120,17 +122,18 @@ fun EditServiceScreen(
                         modifier = Modifier.fillMaxSize(),
                         contentAlignment = Alignment.Center
                     ) {
-                        val imageToShow = if (imageUri != null) {
-                            rememberAsyncImagePainter(imageUri)
-                        } else if (service.images.isNotEmpty()) {
-                            rememberAsyncImagePainter(service.images[0])
-                        } else {
-                            null
-                        }
-
-                        if (imageToShow != null) {
+                        if (imageUri != null) {
+                            // Show newly selected image from gallery/camera
                             Image(
-                                painter = imageToShow,
+                                painter = rememberAsyncImagePainter(imageUri),
+                                contentDescription = "Service Image",
+                                modifier = Modifier.fillMaxSize(),
+                                contentScale = ContentScale.Crop
+                            )
+                        } else if (service.images.isNotEmpty()) {
+                            // Show existing image from database (base64)
+                            Base64Image(
+                                imageSource = service.images[0],
                                 contentDescription = "Service Image",
                                 modifier = Modifier.fillMaxSize(),
                                 contentScale = ContentScale.Crop
@@ -243,7 +246,7 @@ fun EditServiceScreen(
                                 Text("Home Service Available", fontWeight = FontWeight.Medium)
                                 Text("Service at customer's location", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
                             }
-                            Switch(checked = isHomeService, onCheckedChange = { isHomeService = it })
+                            Switch(checked = homeServiceEnabled, onCheckedChange = { homeServiceEnabled = it })
                         }
 
                         HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), thickness = 1.dp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
@@ -286,7 +289,7 @@ fun EditServiceScreen(
                             "category" to category,
                             "price" to (price.toDoubleOrNull() ?: 0.0),
                             "duration" to duration,
-                            "isHomeService" to isHomeService,
+                            "homeService" to homeServiceEnabled,
                             "requiresAppointment" to requiresAppointment
                         )
                         viewModel.updateItem(service.itemId, updates, imageUri)

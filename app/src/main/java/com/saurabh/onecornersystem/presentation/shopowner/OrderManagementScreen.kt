@@ -2,6 +2,7 @@ package com.saurabh.onecornersystem.presentation.shopowner
 
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -83,25 +84,39 @@ fun OrderManagementScreen(
             }
 
             // Order List
-            LazyColumn(
+            Box(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                contentAlignment = Alignment.Center
             ) {
-                items(5) { index ->
-                    OrderCard(
-                        orderId = "ORD00${index + 1}",
-                        customerName = "Customer ${index + 1}",
-                        amount = "₹${(index + 1) * 199}",
-                        items = "${index + 2} items",
-                        status = when (selectedTab) {
-                            0 -> "Pending"
-                            1 -> "Accepted"
-                            2 -> "Delivered"
-                            else -> "Cancelled"
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.ShoppingBag,
+                        contentDescription = null,
+                        modifier = Modifier.size(64.dp),
+                        tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text(
+                        text = "No Orders Yet",
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = when (selectedTab) {
+                            0 -> "No pending orders at the moment"
+                            1 -> "No accepted orders at the moment"
+                            2 -> "No completed orders at the moment"
+                            else -> "No cancelled orders at the moment"
                         },
-                        time = "Today, ${index + 10}:30 AM"
+                        fontSize = 14.sp,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                     )
                 }
             }

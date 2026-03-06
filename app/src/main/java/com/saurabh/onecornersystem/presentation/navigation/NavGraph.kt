@@ -20,6 +20,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -45,6 +46,7 @@ import com.saurabh.onecornersystem.presentation.shopowner.ServiceDetailsScreen
 import com.saurabh.onecornersystem.presentation.shopowner.ServiceListScreen
 import com.saurabh.onecornersystem.presentation.shopowner.ShopOwnerHomeScreen
 import com.saurabh.onecornersystem.presentation.shopowner.ShopOwnerHomeScreen1
+import com.saurabh.onecornersystem.presentation.shopowner.viewmodel.ShopItemViewModel
 import com.saurabh.onecornersystem.presentation.shopowner.viewmodel.ShopViewModel
 import com.saurabh.onecornersystem.presentation.splash.SplashScreen
 import com.saurabh.onecornersystem.utils.Resource
@@ -218,18 +220,19 @@ fun AppNavGraph(
             arguments = listOf(navArgument("shopId") { type = NavType.StringType })
         ) { backStackEntry ->
             val shopId = backStackEntry.arguments?.getString("shopId") ?: ""
-            val myShopState by shopViewModel.myShopState.collectAsState()
+            val shopDetailsState by shopViewModel.shopDetailsState.collectAsState()
 
-            Log.d("NavGraph_EditShop", "EditShop Screen - shopId: $shopId, state: ${myShopState.javaClass.simpleName}")
+            Log.d("NavGraph_EditShop", "EditShop Screen - shopId: $shopId, state: ${shopDetailsState.javaClass.simpleName}")
 
             LaunchedEffect(shopId) {
                 if (shopId.isNotEmpty()) {
                     Log.d("NavGraph_EditShop", "Fetching shop data for shopId: $shopId")
-                    shopViewModel.getShopById(shopId)
+                    shopViewModel.getShopDetails(shopId)
+                    shopViewModel.listenToShopDetails(shopId)
                 }
             }
 
-            when (val state = myShopState) {
+            when (val state = shopDetailsState) {
                 is Resource.Loading -> {
                     Log.d("NavGraph_EditShop", "Loading shop data")
                     Box(
@@ -259,7 +262,7 @@ fun AppNavGraph(
                             Spacer(modifier = Modifier.height(8.dp))
                             Button(onClick = {
                                 Log.d("NavGraph_EditShop", "Retry clicked")
-                                shopViewModel.getShopById(shopId)
+                                shopViewModel.getShopDetails(shopId)
                             }) {
                                 Text("Retry")
                             }
@@ -269,6 +272,61 @@ fun AppNavGraph(
                 else -> {
                     Log.d("NavGraph_EditShop", "Unknown state")
                 }
+            }
+        }
+
+        // My Shop Details Screen
+        composable(
+            route = Screen.MyShopDetails.route,
+            arguments = listOf(navArgument("shopId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val shopId = backStackEntry.arguments?.getString("shopId") ?: ""
+            val shopDetailsState by shopViewModel.shopDetailsState.collectAsState()
+
+            Log.d("NavGraph_MyShopDetails", "MyShopDetails Screen - shopId: $shopId")
+
+            LaunchedEffect(shopId) {
+                if (shopId.isNotEmpty()) {
+                    Log.d("NavGraph_MyShopDetails", "Fetching shop data for shopId: $shopId")
+                    shopViewModel.getShopDetails(shopId)
+                }
+            }
+
+            when (val state = shopDetailsState) {
+                is Resource.Loading -> {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator()
+                    }
+                }
+                is Resource.Success -> {
+                    state.data?.let { shop ->
+                        Log.d("NavGraph_MyShopDetails", "Shop loaded - name: ${shop.shopName}")
+                        com.saurabh.onecornersystem.presentation.shopowner.ShopDetailsScreen(
+                            shop = shop,
+                            navController = navController
+                        )
+                    }
+                }
+                is Resource.Error -> {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text("Error: ${state.message}")
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Button(onClick = {
+                                shopViewModel.getShopDetails(shopId)
+                            }) {
+                                Text("Retry")
+                            }
+                        }
+                    }
+                }
+                else -> {}
             }
         }
 
@@ -303,12 +361,65 @@ fun AppNavGraph(
         ) { backStackEntry ->
             val itemId = backStackEntry.arguments?.getString("itemId") ?: ""
             Log.d("NavGraph_EditProduct", "EditProduct Screen displayed - itemId: $itemId")
-            // You'll need to pass the product object - this is a placeholder
-            // Ideally fetch product from ViewModel using itemId
-            EditProductScreen(
-                product = ShopItem(itemId = itemId), // Replace with actual product
-                navController = navController
-            )
+
+            val shopItemViewModel: ShopItemViewModel = hiltViewModel()
+            val itemState by shopItemViewModel.itemState.collectAsState()
+
+            LaunchedEffect(itemId) {
+                if (itemId.isNotEmpty()) {
+                    Log.d("NavGraph_EditProduct", "Fetching product data for itemId: $itemId")
+                    shopItemViewModel.getItemById(itemId)
+                }
+            }
+
+            when (val state = itemState) {
+                is Resource.Loading -> {
+                    Log.d("NavGraph_EditProduct", "Loading product data")
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator()
+                    }
+                }
+                is Resource.Success -> {
+                    val product = state.data
+                    Log.d("NavGraph_EditProduct", "Product loaded - name: ${product.name}, id: ${product.itemId}")
+                    EditProductScreen(
+                        product = product,
+                        navController = navController
+                    )
+                }
+                is Resource.Error -> {
+                    Log.d("NavGraph_EditProduct", "Error loading product - ${state.message}")
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text("Error: ${state.message}")
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Button(onClick = {
+                                shopItemViewModel.getItemById(itemId)
+                            }) {
+                                Text("Retry")
+                            }
+                        }
+                    }
+                }
+                else -> {
+                    Log.d("NavGraph_EditProduct", "Idle state - fetching product")
+                    LaunchedEffect(Unit) {
+                        shopItemViewModel.getItemById(itemId)
+                    }
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator()
+                    }
+                }
+            }
         }
 
         // ============= SERVICE ROUTES =============
@@ -342,11 +453,65 @@ fun AppNavGraph(
         ) { backStackEntry ->
             val itemId = backStackEntry.arguments?.getString("itemId") ?: ""
             Log.d("NavGraph_EditService", "EditService Screen displayed - itemId: $itemId")
-            // You'll need to pass the service object - this is a placeholder
-            EditServiceScreen(
-                service = ShopItem(itemId = itemId), // Replace with actual service
-                navController = navController
-            )
+
+            val shopItemViewModel: ShopItemViewModel = hiltViewModel()
+            val itemState by shopItemViewModel.itemState.collectAsState()
+
+            LaunchedEffect(itemId) {
+                if (itemId.isNotEmpty()) {
+                    Log.d("NavGraph_EditService", "Fetching service data for itemId: $itemId")
+                    shopItemViewModel.getItemById(itemId)
+                }
+            }
+
+            when (val state = itemState) {
+                is Resource.Loading -> {
+                    Log.d("NavGraph_EditService", "Loading service data")
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator()
+                    }
+                }
+                is Resource.Success -> {
+                    val service = state.data
+                    Log.d("NavGraph_EditService", "Service loaded - name: ${service.name}, id: ${service.itemId}")
+                    EditServiceScreen(
+                        service = service,
+                        navController = navController
+                    )
+                }
+                is Resource.Error -> {
+                    Log.d("NavGraph_EditService", "Error loading service - ${state.message}")
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text("Error: ${state.message}")
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Button(onClick = {
+                                shopItemViewModel.getItemById(itemId)
+                            }) {
+                                Text("Retry")
+                            }
+                        }
+                    }
+                }
+                else -> {
+                    Log.d("NavGraph_EditService", "Idle state - fetching service")
+                    LaunchedEffect(Unit) {
+                        shopItemViewModel.getItemById(itemId)
+                    }
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator()
+                    }
+                }
+            }
         }
 
         composable(
@@ -376,13 +541,39 @@ fun AppNavGraph(
             }
         }
 
+        composable(
+            route = Screen.OrdersByShop.route,
+            arguments = listOf(navArgument("shopId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val shopId = backStackEntry.arguments?.getString("shopId") ?: ""
+            Log.d("NavGraph_OrdersByShop", "Orders Screen displayed - shopId: $shopId")
+            PlaceholderScreen(title = "Shop Orders") {
+                navController.popBackStack()
+            }
+        }
+
         composable(Screen.Profile.route) {
             val currentUser by authViewModel.currentUser.collectAsState()
-            Log.d("NavGraph_Profile", "Profile Screen displayed - userId: ${currentUser?.userId}")
+            val myShopState by shopViewModel.myShopState.collectAsState()
+            Log.d("NavGraph_Profile", "Profile Screen displayed - userId: ${currentUser?.userId}, role: ${currentUser?.role}")
+
+            // Fetch shop data if user is shop owner
+            LaunchedEffect(currentUser) {
+                if (currentUser?.role == "shop_owner" && currentUser?.userId?.isNotEmpty() == true) {
+                    Log.d("NavGraph_Profile", "Fetching shop for owner: ${currentUser?.userId}")
+                    shopViewModel.getMyShop(currentUser!!.userId)
+                }
+            }
 
             if (currentUser != null) {
+                val shop = when (val state = myShopState) {
+                    is Resource.Success -> state.data
+                    else -> null
+                }
+
                 ProfileScreen(
                     user = currentUser!!,
+                    shop = shop,
                     onBackClick = {
                         Log.d("NavGraph_Profile", "Back clicked")
                         navController.popBackStack()
@@ -395,6 +586,12 @@ fun AppNavGraph(
                         authViewModel.logout()
                         navController.navigate(Screen.Login.route) {
                             popUpTo(0) { inclusive = true }
+                        }
+                    },
+                    onShopClick = {
+                        shop?.let {
+                            Log.d("NavGraph_Profile", "Shop clicked - navigating to shop details")
+                            navController.navigate("my_shop_details/${it.shopId}")
                         }
                     }
                 )
@@ -461,6 +658,9 @@ sealed class Screen(val route: String) {
     // Shop Owner
     object ShopOwnerHome : Screen("shop_owner_home")
     object CreateShop : Screen("create_shop")
+    object MyShopDetails : Screen("my_shop_details/{shopId}") {
+        fun passShopId(shopId: String) = "my_shop_details/$shopId"
+    }
     object EditShop : Screen("edit_shop/{shopId}") {
         fun passShopId(shopId: String) = "edit_shop/$shopId"
     }
@@ -491,6 +691,9 @@ sealed class Screen(val route: String) {
     object Profile : Screen("profile")
     object Cart : Screen("cart")
     object Orders : Screen("orders")
+    object OrdersByShop : Screen("orders/{shopId}") {
+        fun passShopId(shopId: String) = "orders/$shopId"
+    }
     object Chat : Screen("chat/{chatId}") {
         fun passChatId(chatId: String) = "chat/$chatId"
     }

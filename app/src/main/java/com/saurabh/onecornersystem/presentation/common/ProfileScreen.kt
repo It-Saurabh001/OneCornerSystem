@@ -20,16 +20,19 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.Help
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.List
+import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Logout
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.ShoppingCart
+import androidx.compose.material.icons.filled.Store
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -60,6 +63,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.saurabh.onecornersystem.data.model.Shop
+import com.saurabh.onecornersystem.data.model.ShopType
 import com.saurabh.onecornersystem.data.model.User
 import com.saurabh.onecornersystem.ui.theme.OneCornerSystemTheme
 
@@ -68,9 +73,11 @@ import com.saurabh.onecornersystem.ui.theme.OneCornerSystemTheme
 @Composable
 fun ProfileScreen(
     user: User,
+    shop: Shop? = null,
     onBackClick: () -> Unit,
     onEditClick: () -> Unit,
-    onLogoutClick: () -> Unit
+    onLogoutClick: () -> Unit,
+    onShopClick: () -> Unit = {}
 ) {
     val scrollState = rememberScrollState()
     Scaffold(
@@ -175,6 +182,173 @@ fun ProfileScreen(
             }
 
             Spacer(modifier = Modifier.height(16.dp))
+
+            // Shop Info Card (Only for Shop Owners)
+            if (shop != null && user.role == "shop_owner") {
+                Card(
+                    modifier = Modifier
+                        .padding(horizontal = 16.dp)
+                        .fillMaxWidth()
+                        .clickable { onShopClick() },
+                    shape = RoundedCornerShape(16.dp),
+                    elevation = CardDefaults.cardElevation(4.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = Color(0xFFE3F2FD)
+                    )
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "🏪 My Shop",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 16.sp,
+                                color = Color(0xFF1565C0)
+                            )
+                            Icon(
+                                Icons.Default.ChevronRight,
+                                contentDescription = "View Shop",
+                                tint = Color(0xFF1565C0)
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        // Shop Name
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                Icons.Default.Store,
+                                contentDescription = null,
+                                modifier = Modifier.size(20.dp),
+                                tint = Color(0xFF1976D2)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = shop.shopName,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 18.sp
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        // Shop Type Badge
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = shop.category,
+                                fontSize = 14.sp,
+                                color = Color.Gray
+                            )
+                            Card(
+                                colors = CardDefaults.cardColors(
+                                    containerColor = if (shop.shopType == ShopType.PRODUCT)
+                                        Color(0xFF4CAF50) else Color(0xFF2196F3)
+                                )
+                            ) {
+                                Text(
+                                    text = if (shop.shopType == ShopType.PRODUCT) "🛍️ Products" else "🔧 Services",
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                    fontSize = 12.sp,
+                                    color = Color.White
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        // Location
+                        if (shop.address.isNotEmpty() || shop.city.isNotEmpty()) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    Icons.Default.LocationOn,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(16.dp),
+                                    tint = Color.Gray
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    text = buildString {
+                                        if (shop.address.isNotEmpty()) append(shop.address)
+                                        if (shop.city.isNotEmpty()) {
+                                            if (isNotEmpty()) append(", ")
+                                            append(shop.city)
+                                        }
+                                    },
+                                    fontSize = 12.sp,
+                                    color = Color.Gray
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        // Stats Row
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceEvenly
+                        ) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Text(
+                                    text = shop.totalItems.toString(),
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFF1976D2)
+                                )
+                                Text(
+                                    text = if (shop.shopType == ShopType.PRODUCT) "Products" else "Services",
+                                    fontSize = 10.sp,
+                                    color = Color.Gray
+                                )
+                            }
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Text(
+                                    text = shop.totalOrders.toString(),
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFF1976D2)
+                                )
+                                Text(
+                                    text = "Orders",
+                                    fontSize = 10.sp,
+                                    color = Color.Gray
+                                )
+                            }
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Text(
+                                    text = String.format("%.1f", shop.rating),
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFF1976D2)
+                                )
+                                Text(
+                                    text = "Rating",
+                                    fontSize = 10.sp,
+                                    color = Color.Gray
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        Text(
+                            text = "Tap to view shop details →",
+                            fontSize = 12.sp,
+                            color = Color(0xFF1976D2),
+                            modifier = Modifier.align(Alignment.End)
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+            }
 
             // Stats Card
             Card(

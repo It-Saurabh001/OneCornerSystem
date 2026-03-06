@@ -28,7 +28,7 @@ data class ShopItem(
 
     // SERVICE-specific fields
     val duration: String = "",
-    val isHomeService: Boolean = false,
+    val homeService: Boolean = false,
     val requiresAppointment: Boolean = false,
 
     // Stats

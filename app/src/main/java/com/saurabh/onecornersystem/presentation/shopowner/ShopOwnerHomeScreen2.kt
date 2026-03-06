@@ -50,7 +50,9 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.saurabh.onecornersystem.data.model.Shop
+import com.saurabh.onecornersystem.data.model.ShopItem
 import com.saurabh.onecornersystem.data.model.ShopType
+import com.saurabh.onecornersystem.presentation.shopowner.viewmodel.ShopItemViewModel
 import com.saurabh.onecornersystem.presentation.shopowner.viewmodel.ShopViewModel
 import com.saurabh.onecornersystem.utils.Resource
 
@@ -60,10 +62,12 @@ import com.saurabh.onecornersystem.utils.Resource
 fun ShopOwnerHomeScreen1(
     navController: NavController,
     ownerId: String,
-    viewModel: ShopViewModel = hiltViewModel()
+    viewModel: ShopViewModel = hiltViewModel(),
+    shopItemViewModel: ShopItemViewModel = hiltViewModel()
 ) {
     Log.d("ShopOwnerHome_Screen", "ShopOwnerHomeScreen1: Displayed with ownerId=$ownerId")
     val myShopState by viewModel.myShopState.collectAsState()
+    val servicesState by shopItemViewModel.servicesState.collectAsState()
 
     // अगर ownerId empty है तो loading दिखाओ
     if (ownerId.isEmpty()) {
@@ -78,8 +82,11 @@ fun ShopOwnerHomeScreen1(
     }
 
     LaunchedEffect(ownerId) {
-        viewModel.getMyShop(ownerId)
-        viewModel.listenToMyShop(ownerId)
+        if (ownerId.isNotEmpty()) {
+            Log.d("ShopOwnerHome_Screen", "ShopOwnerHomeScreen1: Setting up shop listener for ownerId=$ownerId")
+            viewModel.getMyShop(ownerId)
+            viewModel.listenToMyShop(ownerId)
+        }
     }
 
     Scaffold(
@@ -151,6 +158,22 @@ fun ShopOwnerHomeScreen1(
             }
             is Resource.Success -> {
                 val shop = state.data
+
+                if (shop.shopType == ShopType.SERVICE) {
+                    LaunchedEffect(shop.shopId) {
+                        if (shop.shopId.isNotEmpty()) {
+                            shopItemViewModel.getServicesByShop(shop.shopId)
+                        }
+                    }
+                }
+
+                val itemCount = when {
+                    shop.shopType == ShopType.SERVICE && servicesState is Resource.Success -> {
+                        (servicesState as Resource.Success<List<ShopItem>>).data.size
+                    }
+                    else -> shop.totalItems
+                }
+
                 Log.d("ShopOwnerHome_Screen", "ShopOwnerHomeScreen1: Shop loaded - shopId=${shop.shopId}, totalItems=${shop.totalItems}, totalOrders=${shop.totalOrders}, totalRevenue=${shop.totalRevenue}")
 
                 LazyColumn(
@@ -164,18 +187,22 @@ fun ShopOwnerHomeScreen1(
                         ShopHeaderCard(
                             shop = shop,
                             isOpen = viewModel.isShopOpen(shop),
-                            statusMessage = viewModel.getShopStatusMessage(shop)
+                            statusMessage = viewModel.getShopStatusMessage(shop),
+                            onShopClick = {
+                                Log.d("ShopOwnerHome_Screen", "Shop header clicked - navigating to shop details")
+                                navController.navigate("my_shop_details/${shop.shopId}")
+                            }
                         )
                     }
 
                     item {
-                        StatsGrid(shop = shop)
+                        StatsGrid(shop = shop, itemCount = itemCount)
                     }
 
                     // 🎯 अगर items = 0 हैं, तो Empty State Message दिखाओ
-                    if (shop.totalItems == 0) {
+                    if (itemCount == 0) {
                         item {
-                            EmptyItemsMessage(shop = shop)
+                            EmptyItemsMessage(shop = shop, itemCount = itemCount)
                         }
                     }
 
@@ -239,7 +266,7 @@ fun ShopOwnerHomeScreen1(
  * 🎯 EMPTY ITEMS MESSAGE - जब totalItems = 0 हो, सिर्फ message दिखाओ
  */
 @Composable
-fun EmptyItemsMessage(shop: Shop) {
+fun EmptyItemsMessage(shop: Shop, itemCount: Int) {
     Log.d("ShopOwnerHome_Empty", "EmptyItemsMessage: Displayed for shopType=${shop.shopType}")
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -291,14 +318,16 @@ fun EmptyItemsMessage(shop: Shop) {
 fun ShopHeaderCard(
     shop: Shop,
     isOpen: Boolean,
-    statusMessage: String
+    statusMessage: String,
+    onShopClick: () -> Unit = {}
 ) {
     Log.d("ShopOwnerHome_Header", "ShopHeaderCard: Displayed for shopName=${shop.shopName}, category=${shop.category}, isOpen=$isOpen")
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.primaryContainer
-        )
+        ),
+        onClick = onShopClick
     ) {
         Row(
             modifier = Modifier
@@ -355,7 +384,27 @@ fun ShopHeaderCard(
                 }
             }
 
-            // Shop Type Badge
+            // View Details Arrow
+            Icon(
+                Icons.Default.ChevronRight,
+                contentDescription = "View Shop Details",
+                tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+            )
+        }
+
+        // Shop Type Badge Row
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = 16.dp, end = 16.dp, bottom = 12.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "Tap to view shop details",
+                fontSize = 12.sp,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+            )
             Card(
                 colors = CardDefaults.cardColors(
                     containerColor = if (shop.shopType == ShopType.PRODUCT)
@@ -375,7 +424,7 @@ fun ShopHeaderCard(
 
 @SuppressLint("DefaultLocale")
 @Composable
-fun StatsGrid(shop: Shop) {
+fun StatsGrid(shop: Shop, itemCount: Int) {
     Log.d("ShopOwnerHome_Stats", "StatsGrid: Displayed with totalItems=${shop.totalItems}, totalOrders=${shop.totalOrders}, totalRevenue=${shop.totalRevenue}")
     Card(
         modifier = Modifier.fillMaxWidth()
@@ -387,7 +436,7 @@ fun StatsGrid(shop: Shop) {
             horizontalArrangement = Arrangement.SpaceEvenly
         ) {
             StatItem(
-                value = shop.totalItems.toString(),
+                value = itemCount.toString(),
                 label = if (shop.shopType == ShopType.PRODUCT) "Products" else "Services"
             )
             VerticalDivider(
@@ -459,7 +508,7 @@ fun QuickActionsRow(
                     label = "Edit Shop",
                     onClick = {
                         Log.d("ShopOwnerHome_Actions", "QuickActionsRow: Edit Shop clicked for shopId=$shopId")
-                        navController.navigate("edit_shop/$shopId")
+                        navController.navigate("edit_shop/$shopId") // Will be handled by NavGraph
                     }
                 )
 

@@ -114,7 +114,9 @@ class ShopRepositoryImpl @Inject constructor(
 
             val shop = shopDoc.toObject(Shop::class.java)
             if (shop != null) {
-                emit(Resource.Success(shop))
+                // Ensure we always set the Firestore document id onto the model
+                val mapped = shop.copy(shopId = shopDoc.id)
+                emit(Resource.Success(mapped))
             } else {
                 emit(Resource.Error("Shop not found"))
             }
@@ -140,9 +142,12 @@ class ShopRepositoryImpl @Inject constructor(
                     emit(Resource.Error("Multiple shops found for owner"))
                 }
                 else -> {
-                    val shop = querySnapshot.documents[0].toObject(Shop::class.java)
+                    val doc = querySnapshot.documents[0]
+                    val shop = doc.toObject(Shop::class.java)
                     if (shop != null) {
-                        emit(Resource.Success(shop))
+                        // Backfill shopId from document id
+                        val mapped = shop.copy(shopId = doc.id)
+                        emit(Resource.Success(mapped))
                     } else {
                         emit(Resource.Error("Shop data is invalid"))
                     }
@@ -237,7 +242,8 @@ class ShopRepositoryImpl @Inject constructor(
                             else -> {
                                 val shop = snapshot.toObject(Shop::class.java)
                                 if (shop != null) {
-                                    trySend(Resource.Success(shop))
+                                    // Map the document id back to shopId
+                                    trySend(Resource.Success(shop.copy(shopId = snapshot.id)))
                                 } else {
                                     trySend(Resource.Error("Shop data is invalid"))
                                 }
@@ -739,4 +745,3 @@ class ShopRepositoryImpl @Inject constructor(
         return FirebaseAuth.getInstance().currentUser?.uid ?: throw Exception("User not logged in")
     }
 }
-

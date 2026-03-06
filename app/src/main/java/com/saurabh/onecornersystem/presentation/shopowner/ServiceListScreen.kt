@@ -1,6 +1,6 @@
 package com.saurabh.onecornersystem.presentation.shopowner
 
-
+import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -61,10 +61,15 @@ fun ServiceListScreen(
     navController: NavController,
     viewModel: ShopItemViewModel = hiltViewModel()
 ) {
+    Log.d("ServiceListScreen", "Displayed - shopId: $shopId")
     val servicesState by viewModel.servicesState.collectAsState()
 
     LaunchedEffect(shopId) {
-        viewModel.getServicesByShop(shopId)
+        Log.d("ServiceListScreen", "LaunchedEffect triggered for shopId: $shopId")
+        if (shopId.isNotEmpty()) {
+            Log.d("ServiceListScreen", "Fetching services for shopId: $shopId")
+            viewModel.getServicesByShop(shopId)
+        }
     }
 
     Scaffold(
@@ -88,6 +93,7 @@ fun ServiceListScreen(
     ) { paddingValues ->
         when (val state = servicesState) {
             is Resource.Loading -> {
+                Log.d("ServiceListScreen", "Loading services for shopId: $shopId")
                 Box(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
@@ -96,9 +102,12 @@ fun ServiceListScreen(
                 }
             }
             is Resource.Success -> {
+                Log.d("ServiceListScreen", "Services loaded successfully - count: ${state.data.size}")
                 if (state.data.isEmpty()) {
+                    Log.d("ServiceListScreen", "No services found for shopId: $shopId")
                     EmptyServiceView(shopId, navController)
                 } else {
+                    Log.d("ServiceListScreen", "Displaying ${state.data.size} services")
                     LazyColumn(
                         modifier = Modifier
                             .fillMaxSize()
@@ -107,15 +116,19 @@ fun ServiceListScreen(
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         items(state.data) { service ->
+                            Log.d("ServiceListScreen", "Rendering service - id: ${service.itemId}, name: ${service.name}")
                             ServiceCard(
                                 service = service,
                                 onEditClick = {
+                                    Log.d("ServiceListScreen", "Edit clicked for service: ${service.itemId}")
                                     navController.navigate("edit_service/${service.itemId}")
                                 },
                                 onViewDetails = {
+                                    Log.d("ServiceListScreen", "View details clicked for service: ${service.itemId}")
                                     navController.navigate("service_details/${service.itemId}")
                                 },
                                 onToggleAvailability = {
+                                    Log.d("ServiceListScreen", "Availability toggled for service: ${service.itemId}, new value: ${!service.isAvailable}")
                                     viewModel.toggleItemAvailability(service.itemId, !service.isAvailable)
                                 }
                             )
@@ -124,6 +137,7 @@ fun ServiceListScreen(
                 }
             }
             is Resource.Error -> {
+                Log.d("ServiceListScreen", "Error loading services - ${state.message}")
                 Box(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
@@ -134,13 +148,18 @@ fun ServiceListScreen(
                             color = MaterialTheme.colorScheme.error
                         )
                         Spacer(modifier = Modifier.height(8.dp))
-                        Button(onClick = { viewModel.getServicesByShop(shopId) }) {
+                        Button(onClick = {
+                            Log.d("ServiceListScreen", "Retry clicked for shopId: $shopId")
+                            viewModel.getServicesByShop(shopId)
+                        }) {
                             Text("Retry")
                         }
                     }
                 }
             }
-            else -> {}
+            else -> {
+                Log.d("ServiceListScreen", "Unknown state: ${state.javaClass.simpleName}")
+            }
         }
     }
 }
@@ -152,6 +171,7 @@ fun ServiceCard(
     onViewDetails: () -> Unit,
     onToggleAvailability: () -> Unit
 ) {
+    Log.d("ServiceCard", "Rendered - id: ${service.itemId}, name: ${service.name}, available: ${service.isAvailable}")
     Card(
         modifier = Modifier.fillMaxWidth(),
         elevation = CardDefaults.cardElevation(2.dp),
@@ -271,7 +291,7 @@ fun ServiceCard(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                if (service.isHomeService == true) {
+                if (service.homeService) {
                     AssistChip(
                         onClick = {},
                         label = {
@@ -281,7 +301,7 @@ fun ServiceCard(
                     )
                 }
 
-                if (service.requiresAppointment == true) {
+                if (service.requiresAppointment) {
                     AssistChip(
                         onClick = {},
                         label = {
@@ -326,6 +346,7 @@ fun EmptyServiceView(
     shopId: String,
     navController: NavController
 ) {
+    Log.d("EmptyServiceView", "Displayed for shopId: $shopId - No services available")
     Column(
         modifier = Modifier
             .fillMaxSize()

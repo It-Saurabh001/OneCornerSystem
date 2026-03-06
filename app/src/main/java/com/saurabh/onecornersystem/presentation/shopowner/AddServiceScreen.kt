@@ -1,6 +1,6 @@
 package com.saurabh.onecornersystem.presentation.shopowner
 
-
+import android.util.Log
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
@@ -15,6 +15,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -44,12 +45,14 @@ fun AddServiceScreen(
     navController: NavController,
     viewModel: ShopItemViewModel = hiltViewModel()
 ) {
+    Log.d("AddServiceScreen", "Displayed - shopId: $shopId")
+
     var serviceName by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
     var price by remember { mutableStateOf("") }
     var duration by remember { mutableStateOf("") }
     var category by remember { mutableStateOf("") }
-    var isHomeService by remember { mutableStateOf(false) }
+    var homeServiceEnabled by remember { mutableStateOf(false) }
     var requiresAppointment by remember { mutableStateOf(false) }
 
     var imageUri by remember { mutableStateOf<Uri?>(null) }
@@ -61,13 +64,18 @@ fun AddServiceScreen(
 
     val photoPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickVisualMedia(),
-        onResult = { uri -> imageUri = uri }
+        onResult = { uri ->
+            Log.d("AddServiceScreen", "Image selected from gallery - uri: $uri")
+            imageUri = uri
+        }
     )
 
     val createState by viewModel.createItemState.collectAsState()
 
     LaunchedEffect(createState) {
+        Log.d("AddServiceScreen", "CreateState changed - state: ${createState.javaClass.simpleName}")
         if (createState is Resource.Success) {
+            Log.d("AddServiceScreen", "Service created successfully, navigating back")
             navController.popBackStack()
             navController.navigate("services/$shopId")
         }
@@ -76,10 +84,14 @@ fun AddServiceScreen(
     if (showCamera) {
         CameraCaptureScreen(
             onImageCaptured = { uri ->
+                Log.d("AddServiceScreen", "Image captured from camera - uri: $uri")
                 imageUri = uri
                 showCamera = false
             },
-            onBackClick = { showCamera = false }
+            onBackClick = {
+                Log.d("AddServiceScreen", "Camera screen closed")
+                showCamera = false
+            }
         )
     } else {
         Scaffold(
@@ -88,7 +100,7 @@ fun AddServiceScreen(
                     title = { Text("Add New Service") },
                     navigationIcon = {
                         IconButton(onClick = { navController.popBackStack() }) {
-                            Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                         }
                     }
                 )
@@ -221,7 +233,7 @@ fun AddServiceScreen(
                                 Text("Home Service Available", fontWeight = FontWeight.Medium)
                                 Text("Service at customer's location", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
                             }
-                            Switch(checked = isHomeService, onCheckedChange = { isHomeService = it })
+                            Switch(checked = homeServiceEnabled, onCheckedChange = { homeServiceEnabled = it })
                         }
 
                         HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), thickness = 1.dp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
@@ -258,6 +270,9 @@ fun AddServiceScreen(
 
                 Button(
                     onClick = {
+                        Log.d("AddServiceScreen", "Add Service clicked - shopId: $shopId")
+                        Log.d("AddServiceScreen", "Service details - name: $serviceName, category: $category, price: $price, duration: $duration")
+                        Log.d("AddServiceScreen", "Service options - homeService: $homeServiceEnabled, requiresAppointment: $requiresAppointment, imageUri: ${imageUri != null}")
                         viewModel.createService(
                             shopId = shopId,
                             name = serviceName,
@@ -265,7 +280,7 @@ fun AddServiceScreen(
                             category = category,
                             price = price.toDoubleOrNull() ?: 0.0,
                             duration = duration,
-                            isHomeService = isHomeService,
+                            homeService = homeServiceEnabled,
                             requiresAppointment = requiresAppointment,
                             imageUri = imageUri
                         )

@@ -78,6 +78,8 @@ fun EditShopScreen(
     var email by remember { mutableStateOf(shop.email) }
     var openingTime by remember { mutableStateOf(shop.openingTime) }
     var closingTime by remember { mutableStateOf(shop.closingTime) }
+    var latitude by remember { mutableStateOf(shop.location.latitude.toString()) }
+    var longitude by remember { mutableStateOf(shop.location.longitude.toString()) }
 
     var logoUri by remember { mutableStateOf<Uri?>(null) }
     var coverUri by remember { mutableStateOf<Uri?>(null) }
@@ -314,6 +316,26 @@ fun EditShopScreen(
                                 modifier = Modifier.weight(1f)
                             )
                         }
+                        Text(text = "Location Coordinates", fontWeight = FontWeight.Bold, fontSize = 14.sp, modifier = Modifier.padding(top = 8.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            OutlinedTextField(
+                                value = latitude,
+                                onValueChange = { latitude = it },
+                                label = { Text("Latitude") },
+                                modifier = Modifier.weight(1f),
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
+                            )
+                            OutlinedTextField(
+                                value = longitude,
+                                onValueChange = { longitude = it },
+                                label = { Text("Longitude") },
+                                modifier = Modifier.weight(1f),
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
+                            )
+                        }
                     }
                 }
 
@@ -364,11 +386,19 @@ fun EditShopScreen(
                 Button(
                     onClick = {
                         Log.d("EditShopScreen", "Update Shop clicked - shopId: ${shop.shopId}")
-                        Log.d("EditShopScreen", "Updated values - name: $shopName, city: $city, openingTime: $openingTime, closingTime: $closingTime")
+                        Log.d("EditShopScreen", "Updated values - name: $shopName, city: $city, openingTime: $openingTime, closingTime: $closingTime, lat: $latitude, lng: $longitude")
                         viewModel.updateShopInfo(shop.shopId, shopName, description, shop.category)
                         viewModel.updateContactDetails(shop.shopId, contactNumber, email)
                         viewModel.updateShopAddress(shop.shopId, address, city, pincode)
                         viewModel.updateOperatingHours(shop.shopId, openingTime, closingTime)
+                        try {
+                            val lat = latitude.toDoubleOrNull() ?: shop.location.latitude
+                            val lng = longitude.toDoubleOrNull() ?: shop.location.longitude
+                            Log.d("EditShopScreen", "Updating location - lat: $lat, lng: $lng")
+                            viewModel.updateShopLocation(shop.shopId, lat, lng)
+                        } catch (e: Exception) {
+                            Log.d("EditShopScreen", "Error parsing location: ${e.message}")
+                        }
                         logoUri?.let {
                             Log.d("EditShopScreen", "Uploading logo")
                             viewModel.uploadLogo(shop.shopId, it)

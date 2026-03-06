@@ -86,10 +86,10 @@ fun CustomerHomeScreen(
     // Sample shops data (replace with actual data from ViewModel)
     val shops = remember {
         listOf(
-            ShopItem("1", "Pizza House", "Restaurants", "4.5", "$$", R.drawable.sample_shop),
-            ShopItem("2", "Fresh Mart", "Grocery", "4.2", "$$", R.drawable.sample_shop),
-            ShopItem("3", "MedPlus", "Medical", "4.8", "$$$", R.drawable.sample_shop),
-            ShopItem("4", "Tech World", "Electronics", "4.3", "$$$", R.drawable.sample_shop)
+            CustomerShopItem("1", "Pizza House", "Restaurants", "4.5", "$$", R.drawable.sample_shop),
+            CustomerShopItem("2", "Fresh Mart", "Grocery", "4.2", "$$", R.drawable.sample_shop),
+            CustomerShopItem("3", "MedPlus", "Medical", "4.8", "$$$", R.drawable.sample_shop),
+            CustomerShopItem("4", "Tech World", "Electronics", "4.3", "$$$", R.drawable.sample_shop)
         )
     }
 
@@ -319,7 +319,7 @@ fun SectionHeader(
 
 @Composable
 fun ShopCard(
-    shop: ShopItem,
+    shop: CustomerShopItem,
     onClick: () -> Unit
 ) {
     Card(
@@ -409,7 +409,7 @@ fun ShopCard(
 }
 
 
-data class ShopItem(
+data class CustomerShopItem(
     val id: String,
     val name: String,
     val category: String,

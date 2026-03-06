@@ -1,7 +1,6 @@
 package com.saurabh.onecornersystem.presentation.shopowner
 
 
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -32,7 +31,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -51,7 +49,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
-import coil.compose.rememberAsyncImagePainter
+import com.saurabh.onecornersystem.presentation.components.Base64Image
 import com.saurabh.onecornersystem.presentation.shopowner.viewmodel.ShopItemViewModel
 import com.saurabh.onecornersystem.utils.Resource
 
@@ -110,8 +108,8 @@ fun ServiceDetailsScreen(
                 ) {
                     // Service Image
                     if (service.images.isNotEmpty()) {
-                        Image(
-                            painter = rememberAsyncImagePainter(service.images[0]),
+                        Base64Image(
+                            imageSource = service.images[0],
                             contentDescription = "Service Image",
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -271,10 +269,10 @@ fun ServiceDetailsScreen(
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     Icon(
-                                        if (service.isHomeService == true) Icons.Default.CheckCircle
+                                        if (service.homeService) Icons.Default.CheckCircle
                                         else Icons.Default.Cancel,
                                         contentDescription = null,
-                                        tint = if (service.isHomeService == true) Color.Green else Color.Gray,
+                                        tint = if (service.homeService) Color.Green else Color.Gray,
                                         modifier = Modifier.size(20.dp)
                                     )
                                     Spacer(modifier = Modifier.width(8.dp))
@@ -289,10 +287,10 @@ fun ServiceDetailsScreen(
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     Icon(
-                                        if (service.requiresAppointment == true) Icons.Default.CheckCircle
+                                        if (service.requiresAppointment) Icons.Default.CheckCircle
                                         else Icons.Default.Cancel,
                                         contentDescription = null,
-                                        tint = if (service.requiresAppointment == true) Color.Green else Color.Gray,
+                                        tint = if (service.requiresAppointment) Color.Green else Color.Gray,
                                         modifier = Modifier.size(20.dp)
                                     )
                                     Spacer(modifier = Modifier.width(8.dp))
@@ -351,26 +349,12 @@ fun ServiceDetailsScreen(
 
                         Spacer(modifier = Modifier.height(16.dp))
 
-                        // Action Buttons
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        // Action Button
+                        Button(
+                            onClick = { navController.navigateUp() },
+                            modifier = Modifier.fillMaxWidth()
                         ) {
-                            OutlinedButton(
-                                onClick = { navController.navigateUp() },
-                                modifier = Modifier.weight(1f)
-                            ) {
-                                Text("Back")
-                            }
-
-                            Button(
-                                onClick = {
-                                    navController.navigate("edit_service/${service.itemId}")
-                                },
-                                modifier = Modifier.weight(1f)
-                            ) {
-                                Text("Edit")
-                            }
+                            Text("Back to Services")
                         }
                     }
                 }
