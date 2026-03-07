@@ -2,6 +2,7 @@ package com.saurabh.onecornersystem.data.model
 
 import com.google.firebase.Timestamp
 import com.google.firebase.firestore.GeoPoint
+import com.google.firebase.firestore.PropertyName
 
 
 data class Shop(
@@ -21,8 +22,10 @@ data class Shop(
     val coverImage: String = "",
     val openingTime: String = "09:00",
     val closingTime: String = "21:00",
-    val isOpen: Boolean = true,
-    val isActive: Boolean = true,
+    @get:PropertyName("isOpen") @set:PropertyName("isOpen")
+    var open: Boolean = true,
+    @get:PropertyName("isActive") @set:PropertyName("isActive")
+    var active: Boolean = true,
     val rating: Double = 0.0,
     val totalRatings: Int = 0,
     val totalItems: Int = 0,
@@ -34,7 +37,14 @@ data class Shop(
     val hasCover: Boolean = false,
     val createdAt: Timestamp = Timestamp.now(),
     val updatedAt: Timestamp = Timestamp.now()
-)
+){
+    fun toFirestoreMap() : Map<String,Any>{
+        return mapOf(
+            "isActive" to active,  // Sirf isActive
+            "isOpen" to open       // Sirf isOpen
+        )
+    }
+}
 
 data class OperatingHour(
     val dayOfWeek: String = "", // MON, TUE, WED, etc.

@@ -1,6 +1,7 @@
 package com.saurabh.onecornersystem.data.model
 
 import com.google.firebase.Timestamp
+import com.google.firebase.firestore.PropertyName
 
 data class User(
     val userId: String = "",
@@ -13,7 +14,8 @@ data class User(
     val fcmToken: String = "",
     val createdAt: Timestamp = Timestamp.now(),
     val lastLogin: Timestamp = Timestamp.now(),
-    val isActive: Boolean = true // For shop owner active/inactive status
+    @get:PropertyName("isActive") @set:PropertyName("isActive")
+    var active: Boolean = true // For shop owner active/inactive status
 )
 
 enum class ShopType {

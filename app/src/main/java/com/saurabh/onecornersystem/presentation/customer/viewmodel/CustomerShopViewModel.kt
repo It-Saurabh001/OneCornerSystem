@@ -1,76 +1,150 @@
 package com.saurabh.onecornersystem.presentation.customer.viewmodel
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.google.firebase.firestore.GeoPoint
 import com.saurabh.onecornersystem.data.model.CategoryWithType
-import com.saurabh.onecornersystem.data.model.Shop
+import com.saurabh.onecornersystem.data.model.*
 import com.saurabh.onecornersystem.data.model.ShopType
+import com.saurabh.onecornersystem.data.repository.ShopItemRepository
 import com.saurabh.onecornersystem.data.repository.ShopRepository
 import com.saurabh.onecornersystem.utils.Resource
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+private const val TAG = "CustomerShopViewModel"
 
 @HiltViewModel
 class CustomerShopViewModel @Inject constructor(
-    private val shopRepository: ShopRepository
+    private val shopRepository: ShopRepository,
+    private val shopItemRepository: ShopItemRepository
 ) : ViewModel() {
-    // All Nearby Shops
-    private val _nearbyShopsState = MutableStateFlow<Resource<List<Shop>>>(Resource.Loading)
+
+    // ============= NEARBY SHOPS STATES =============
+
+    private val _nearbyShopsState = MutableStateFlow<Resource<List<Shop>>>(Resource.Idle)
     val nearbyShopsState: StateFlow<Resource<List<Shop>>> = _nearbyShopsState.asStateFlow()
 
-    // Filtered by Product
-    private val _nearbyProductShopsState = MutableStateFlow<Resource<List<Shop>>>(Resource.Loading)
+    private val _nearbyProductShopsState = MutableStateFlow<Resource<List<Shop>>>(Resource.Idle)
     val nearbyProductShopsState: StateFlow<Resource<List<Shop>>> = _nearbyProductShopsState.asStateFlow()
 
-    private val _favoriteProductShopsState = MutableStateFlow<Resource<List<Shop>>>(Resource.Loading)
-    val favoriteProductShopsState: StateFlow<Resource<List<Shop>>> = _favoriteProductShopsState.asStateFlow()
-
-    // Filtered by Service
-    private val _nearbyServiceShopsState = MutableStateFlow<Resource<List<Shop>>>(Resource.Loading)
+    private val _nearbyServiceShopsState = MutableStateFlow<Resource<List<Shop>>>(Resource.Idle)
     val nearbyServiceShopsState: StateFlow<Resource<List<Shop>>> = _nearbyServiceShopsState.asStateFlow()
 
-    private val _favoriteServiceShopsState = MutableStateFlow<Resource<List<Shop>>>(Resource.Loading)
-    val favoriteServiceShopsState: StateFlow<Resource<List<Shop>>> = _favoriteServiceShopsState.asStateFlow()
+    // ============= FAVORITES STATES =============
 
-    // Search Results
-    private val _searchResultsState = MutableStateFlow<Resource<List<Shop>>>(Resource.Loading)
-    val searchResultsState: StateFlow<Resource<List<Shop>>> = _searchResultsState.asStateFlow()
-
-    // Favorite Shops
-    private val _favoriteShopsState = MutableStateFlow<Resource<List<Shop>>>(Resource.Loading)
+    private val _favoriteShopsState = MutableStateFlow<Resource<List<Shop>>>(Resource.Idle)
     val favoriteShopsState: StateFlow<Resource<List<Shop>>> = _favoriteShopsState.asStateFlow()
 
-    // Shop Details (for individual shop view)
-    private val _shopDetailsState = MutableStateFlow<Resource<Shop>>(Resource.Loading)
+    private val _favoriteProductShopsState = MutableStateFlow<Resource<List<Shop>>>(Resource.Idle)
+    val favoriteProductShopsState: StateFlow<Resource<List<Shop>>> = _favoriteProductShopsState.asStateFlow()
+
+    private val _favoriteServiceShopsState = MutableStateFlow<Resource<List<Shop>>>(Resource.Idle)
+    val favoriteServiceShopsState: StateFlow<Resource<List<Shop>>> = _favoriteServiceShopsState.asStateFlow()
+
+    // ============= SEARCH & DETAILS STATES =============
+
+    private val _searchResultsState = MutableStateFlow<Resource<List<Shop>>>(Resource.Idle)
+    val searchResultsState: StateFlow<Resource<List<Shop>>> = _searchResultsState.asStateFlow()
+
+    private val _searchServicesState = MutableStateFlow<Resource<List<ShopItem>>>(Resource.Idle)
+    val searchServicesState: StateFlow<Resource<List<ShopItem>>> = _searchServicesState.asStateFlow()
+
+    private val _shopDetailsState = MutableStateFlow<Resource<Shop>>(Resource.Idle)
     val shopDetailsState: StateFlow<Resource<Shop>> = _shopDetailsState.asStateFlow()
 
-    // Shop Rating
-    private val _shopRatingState = MutableStateFlow<Resource<Double>>(Resource.Loading)
+    private val _shopRatingState = MutableStateFlow<Resource<Double>>(Resource.Idle)
     val shopRatingState: StateFlow<Resource<Double>> = _shopRatingState.asStateFlow()
 
-    // Shop Categories
-    private val _shopCategoriesState = MutableStateFlow<Resource<List<CategoryWithType>>>(Resource.Loading)
+    // ============= CATEGORIES STATES =============
+
+    private val _shopCategoriesState = MutableStateFlow<Resource<List<CategoryWithType>>>(Resource.Idle)
     val shopCategoriesState: StateFlow<Resource<List<CategoryWithType>>> = _shopCategoriesState.asStateFlow()
 
-    private val _productCategoriesState = MutableStateFlow<Resource<List<CategoryWithType>>>(Resource.Loading)
+    private val _productCategoriesState = MutableStateFlow<Resource<List<CategoryWithType>>>(Resource.Idle)
     val productCategoriesState: StateFlow<Resource<List<CategoryWithType>>> = _productCategoriesState.asStateFlow()
 
-    private val _serviceCategoriesState = MutableStateFlow<Resource<List<CategoryWithType>>>(Resource.Loading)
+    private val _serviceCategoriesState = MutableStateFlow<Resource<List<CategoryWithType>>>(Resource.Idle)
     val serviceCategoriesState: StateFlow<Resource<List<CategoryWithType>>> = _serviceCategoriesState.asStateFlow()
 
-    // Selected Filter
+    // ============= FILTER STATES =============
+
     private val _selectedShopType = MutableStateFlow<ShopType?>(null)
     val selectedShopType: StateFlow<ShopType?> = _selectedShopType.asStateFlow()
 
-    // Combined Loading State
+    // ============= BOOKING STATES =============
+
+    private val _createBookingState = MutableStateFlow<Resource<Booking>>(Resource.Idle)
+    val createBookingState: StateFlow<Resource<Booking>> = _createBookingState.asStateFlow()
+
+    private val _myBookingsState = MutableStateFlow<Resource<List<Booking>>>(Resource.Idle)
+    val myBookingsState: StateFlow<Resource<List<Booking>>> = _myBookingsState.asStateFlow()
+
+    private val _bookingDetailsState = MutableStateFlow<Resource<Booking>>(Resource.Idle)
+    val bookingDetailsState: StateFlow<Resource<Booking>> = _bookingDetailsState.asStateFlow()
+
+    private val _availableTimeSlotsState = MutableStateFlow<Resource<List<TimeSlot>>>(Resource.Idle)
+    val availableTimeSlotsState: StateFlow<Resource<List<TimeSlot>>> = _availableTimeSlotsState.asStateFlow()
+
+    private val _cancelBookingState = MutableStateFlow<Resource<Boolean>>(Resource.Idle)
+    val cancelBookingState: StateFlow<Resource<Boolean>> = _cancelBookingState.asStateFlow()
+
+    // ============= INIT BLOCK - MOCK DATA COMMENTED OUT =============
+
+    init {
+        Log.d(TAG, "========== CustomerShopViewModel Initialized ==========")
+
+        // 🔴 MOCK DATA COMMENTED OUT - Using real repository data
+        /*
+        viewModelScope.launch {
+            Log.d(TAG, "⚠️ Creating mock data for testing (TEMPORARY)")
+            val mockShops = listOf(
+                Shop(
+                    shopId = "1",
+                    shopName = "Quick Mechanic",
+                    category = "Automotive",
+                    shopType = ShopType.SERVICE,
+                    location = GeoPoint(26.9325, 80.9402),
+                    address = "123 Main St",
+                    rating = 4.5,
+                    totalRatings = 128,
+                    open = true,
+                    active = true
+                ),
+                Shop(
+                    shopId = "2",
+                    shopName = "Style Salon",
+                    category = "Beauty",
+                    shopType = ShopType.SERVICE,
+                    location = GeoPoint(26.9335, 80.9412),
+                    address = "456 Park Ave",
+                    rating = 4.2,
+                    totalRatings = 89,
+                    open = true,
+                    active = true
+                )
+            )
+            _nearbyServiceShopsState.value = Resource.Success(mockShops)
+            Log.d(TAG, "✅ Mock data set to _nearbyServiceShopsState")
+        }
+        */
+
+        Log.d(TAG, "✅ Mock data disabled - using real repository data")
+    }
+
+    // ============= COMBINED LOADING STATE =============
+
     val isLoading: StateFlow<Boolean> = combine(
         _nearbyShopsState,
         _nearbyProductShopsState,
@@ -83,7 +157,12 @@ class CustomerShopViewModel @Inject constructor(
         _productCategoriesState,
         _serviceCategoriesState,
         _shopDetailsState,
-        _shopRatingState
+        _shopRatingState,
+        _createBookingState,
+        _myBookingsState,
+        _bookingDetailsState,
+        _availableTimeSlotsState,
+        _cancelBookingState
     ) { states ->
         states.any { it is Resource.Loading }
     }.stateIn(
@@ -92,7 +171,7 @@ class CustomerShopViewModel @Inject constructor(
         initialValue = false
     )
 
-    // ============= NEARBY SHOPS =============
+    // ============= NEARBY SHOPS FUNCTIONS =============
 
     fun getNearbyShops(
         latitude: Double,
@@ -100,32 +179,67 @@ class CustomerShopViewModel @Inject constructor(
         shopType: ShopType? = null,
         radiusInKm: Double = 10.0
     ) {
+        Log.d(TAG, "========== getNearbyShops ==========")
+        Log.d(TAG, "📍 Location: ($latitude, $longitude)")
+        Log.d(TAG, "🏷️ ShopType: $shopType")
+        Log.d(TAG, "📏 Radius: $radiusInKm km")
+
         viewModelScope.launch {
             when (shopType) {
                 null -> {
+                    Log.d(TAG, "📦 Fetching ALL nearby shops")
                     _nearbyShopsState.value = Resource.Loading
                     try {
                         shopRepository.getNearbyShops(latitude, longitude, radiusInKm)
-                            .collect { _nearbyShopsState.value = it }
+                            .collect { result ->
+                                when (result) {
+                                    is Resource.Success -> Log.d(TAG, "✅ Found ${result.data.size} nearby shops")
+                                    is Resource.Error -> Log.e(TAG, "❌ Error: ${result.message}")
+                                    is Resource.Loading -> Log.d(TAG, "⏳ Loading...")
+                                    else -> {}
+                                }
+                                _nearbyShopsState.value = result
+                            }
                     } catch (e: Exception) {
+                        Log.e(TAG, "❌ Exception: ${e.message}", e)
                         _nearbyShopsState.value = Resource.Error(e.message ?: "Failed to get nearby shops")
                     }
                 }
                 ShopType.PRODUCT -> {
+                    Log.d(TAG, "📦 Fetching PRODUCT shops")
                     _nearbyProductShopsState.value = Resource.Loading
                     try {
                         shopRepository.getNearbyShopsByType(latitude, longitude, radiusInKm, ShopType.PRODUCT)
-                            .collect { _nearbyProductShopsState.value = it }
+                            .collect { result ->
+                                when (result) {
+                                    is Resource.Success -> Log.d(TAG, "✅ Found ${result.data.size} product shops")
+                                    is Resource.Error -> Log.e(TAG, "❌ Error: ${result.message}")
+                                    is Resource.Loading -> Log.d(TAG, "⏳ Loading...")
+                                    else -> {}
+                                }
+                                _nearbyProductShopsState.value = result
+                            }
                     } catch (e: Exception) {
+                        Log.e(TAG, "❌ Exception: ${e.message}", e)
                         _nearbyProductShopsState.value = Resource.Error(e.message ?: "Failed to get nearby product shops")
                     }
                 }
                 ShopType.SERVICE -> {
+                    Log.d(TAG, "📦 Fetching SERVICE shops")
                     _nearbyServiceShopsState.value = Resource.Loading
                     try {
                         shopRepository.getNearbyShopsByType(latitude, longitude, radiusInKm, ShopType.SERVICE)
-                            .collect { _nearbyServiceShopsState.value = it }
+                            .collect { result ->
+                                when (result) {
+                                    is Resource.Success -> Log.d(TAG, "✅ Found ${result.data.size} service shops")
+                                    is Resource.Error -> Log.e(TAG, "❌ Error: ${result.message}")
+                                    is Resource.Loading -> Log.d(TAG, "⏳ Loading...")
+                                    else -> {}
+                                }
+                                _nearbyServiceShopsState.value = result
+                            }
                     } catch (e: Exception) {
+                        Log.e(TAG, "❌ Exception: ${e.message}", e)
                         _nearbyServiceShopsState.value = Resource.Error(e.message ?: "Failed to get nearby service shops")
                     }
                 }
@@ -134,44 +248,70 @@ class CustomerShopViewModel @Inject constructor(
     }
 
     fun getNearbyProductShops(latitude: Double, longitude: Double, radiusInKm: Double = 10.0) {
+        Log.d(TAG, "getNearbyProductShops called - delegating to getNearbyShops")
         getNearbyShops(latitude, longitude, ShopType.PRODUCT, radiusInKm)
     }
 
     fun getNearbyServiceShops(latitude: Double, longitude: Double, radiusInKm: Double = 10.0) {
+        Log.d(TAG, "getNearbyServiceShops called - delegating to getNearbyShops")
         getNearbyShops(latitude, longitude, ShopType.SERVICE, radiusInKm)
     }
 
-    // ============= SHOP DETAILS =============
+    // ============= SHOP DETAILS FUNCTIONS =============
 
     fun getShopDetails(shopId: String) {
+        Log.d(TAG, "========== getShopDetails ==========")
+        Log.d(TAG, "🆔 shopId: $shopId")
+
         if (shopId.isBlank()) {
+            Log.e(TAG, "❌ shopId is blank")
             _shopDetailsState.value = Resource.Error("Shop ID cannot be empty")
             return
         }
 
         viewModelScope.launch {
+            Log.d(TAG, "⏳ Fetching shop details...")
+            _shopDetailsState.value = Resource.Loading
             shopRepository.getShopDetails(shopId).collect { result ->
+                when (result) {
+                    is Resource.Success -> Log.d(TAG, "✅ Shop found: ${result.data.shopName}")
+                    is Resource.Error -> Log.e(TAG, "❌ Error: ${result.message}")
+                    is Resource.Loading -> Log.d(TAG, "⏳ Loading...")
+                    else -> {}
+                }
                 _shopDetailsState.value = result
             }
         }
     }
 
     fun listenToShopDetails(shopId: String) {
+        Log.d(TAG, "========== listenToShopDetails ==========")
+        Log.d(TAG, "🆔 shopId: $shopId")
+
         if (shopId.isBlank()) {
+            Log.e(TAG, "❌ shopId is blank")
             _shopDetailsState.value = Resource.Error("Shop ID cannot be empty")
             return
         }
 
         viewModelScope.launch {
+            Log.d(TAG, "⏳ Setting up listener for shop details...")
             shopRepository.listenToShopDetails(shopId).collect { result ->
+                when (result) {
+                    is Resource.Success -> Log.d(TAG, "📢 Shop update: ${result.data.shopName}")
+                    is Resource.Error -> Log.e(TAG, "❌ Error: ${result.message}")
+                    is Resource.Loading -> Log.d(TAG, "⏳ Loading...")
+                    else -> {}
+                }
                 _shopDetailsState.value = result
             }
         }
     }
 
-    // ============= SHOP RATING =============
+    // ============= SHOP RATING FUNCTIONS =============
 
     fun getShopRating(shopId: String) {
+        Log.d(TAG, "getShopRating - shopId: $shopId")
         if (shopId.isBlank()) {
             _shopRatingState.value = Resource.Error("Shop ID cannot be empty")
             return
@@ -184,19 +324,33 @@ class CustomerShopViewModel @Inject constructor(
         }
     }
 
-    // ============= SEARCH =============
+    // ============= SEARCH FUNCTIONS =============
 
     fun searchShops(query: String, shopType: ShopType? = null) {
+        Log.d(TAG, "========== searchShops ==========")
+        Log.d(TAG, "🔍 query: '$query', type: $shopType")
+
         if (query.isBlank()) {
+            Log.e(TAG, "❌ Search query is blank")
             _searchResultsState.value = Resource.Error("Search query cannot be empty")
             return
         }
 
         viewModelScope.launch {
+            Log.d(TAG, "⏳ Searching...")
             _searchResultsState.value = Resource.Loading
             try {
-                shopRepository.searchShops(query, shopType).collect { _searchResultsState.value = it }
+                shopRepository.searchShops(query, shopType).collect { result ->
+                    when (result) {
+                        is Resource.Success -> Log.d(TAG, "✅ Found ${result.data.size} shops")
+                        is Resource.Error -> Log.e(TAG, "❌ Error: ${result.message}")
+                        is Resource.Loading -> Log.d(TAG, "⏳ Loading...")
+                        else -> {}
+                    }
+                    _searchResultsState.value = result
+                }
             } catch (e: Exception) {
+                Log.e(TAG, "❌ Exception: ${e.message}", e)
                 _searchResultsState.value = Resource.Error(e.message ?: "Search failed")
             }
         }
@@ -205,13 +359,57 @@ class CustomerShopViewModel @Inject constructor(
     fun searchProductShops(query: String) = searchShops(query, ShopType.PRODUCT)
     fun searchServiceShops(query: String) = searchShops(query, ShopType.SERVICE)
 
-    // ============= CATEGORIES =============
+    /**
+     * Search services by name, description or category
+     */
+    fun searchServices(query: String) {
+        Log.d(TAG, "========== searchServices ==========")
+        Log.d(TAG, "🔍 Searching services with query: '$query'")
+
+        if (query.isBlank()) {
+            Log.e(TAG, "❌ Search query is blank")
+            _searchServicesState.value = Resource.Error("Search query cannot be empty")
+            return
+        }
+
+        viewModelScope.launch {
+            Log.d(TAG, "⏳ Searching services...")
+            _searchServicesState.value = Resource.Loading
+            try {
+                shopItemRepository.searchServices(query, ShopType.SERVICE).collect { result ->
+                    when (result) {
+                        is Resource.Success -> Log.d(TAG, "✅ Found ${result.data.size} services")
+                        is Resource.Error -> Log.e(TAG, "❌ Error: ${result.message}")
+                        is Resource.Loading -> Log.d(TAG, "⏳ Loading...")
+                        else -> {}
+                    }
+                    _searchServicesState.value = result
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "❌ Exception: ${e.message}", e)
+                _searchServicesState.value = Resource.Error(e.message ?: "Search failed")
+            }
+        }
+    }
+
+    /**
+     * Clear search results
+     */
+    fun clearSearchResults() {
+        _searchServicesState.value = Resource.Idle
+        _searchResultsState.value = Resource.Idle
+    }
+
+    // ============= CATEGORIES FUNCTIONS =============
 
     fun getShopCategories() {
+        Log.d(TAG, "getShopCategories called")
         viewModelScope.launch {
             _shopCategoriesState.value = Resource.Loading
             try {
-                shopRepository.getAllCategoriesWithType().collect { _shopCategoriesState.value = it }
+                shopRepository.getAllCategoriesWithType().collect { result ->
+                    _shopCategoriesState.value = result
+                }
             } catch (e: Exception) {
                 _shopCategoriesState.value = Resource.Error(e.message ?: "Failed to get categories")
             }
@@ -219,10 +417,13 @@ class CustomerShopViewModel @Inject constructor(
     }
 
     fun getProductCategories() {
+        Log.d(TAG, "getProductCategories called")
         viewModelScope.launch {
             _productCategoriesState.value = Resource.Loading
             try {
-                shopRepository.getProductCategoriesWithType().collect { _productCategoriesState.value = it }
+                shopRepository.getProductCategoriesWithType().collect { result ->
+                    _productCategoriesState.value = result
+                }
             } catch (e: Exception) {
                 _productCategoriesState.value = Resource.Error(e.message ?: "Failed to get product categories")
             }
@@ -230,10 +431,13 @@ class CustomerShopViewModel @Inject constructor(
     }
 
     fun getServiceCategories() {
+        Log.d(TAG, "getServiceCategories called")
         viewModelScope.launch {
             _serviceCategoriesState.value = Resource.Loading
             try {
-                shopRepository.getServiceCategoriesWithType().collect { _serviceCategoriesState.value = it }
+                shopRepository.getServiceCategoriesWithType().collect { result ->
+                    _serviceCategoriesState.value = result
+                }
             } catch (e: Exception) {
                 _serviceCategoriesState.value = Resource.Error(e.message ?: "Failed to get service categories")
             }
@@ -241,6 +445,7 @@ class CustomerShopViewModel @Inject constructor(
     }
 
     fun getShopsByCategory(category: String, shopType: ShopType? = null) {
+        Log.d(TAG, "getShopsByCategory - category: $category, type: $shopType")
         if (category.isBlank()) {
             _searchResultsState.value = Resource.Error("Category cannot be empty")
             return
@@ -249,103 +454,302 @@ class CustomerShopViewModel @Inject constructor(
         viewModelScope.launch {
             _searchResultsState.value = Resource.Loading
             try {
-                shopRepository.getShopsByCategory(category, shopType).collect { _searchResultsState.value = it }
+                shopRepository.getShopsByCategory(category, shopType).collect { result ->
+                    _searchResultsState.value = result
+                }
             } catch (e: Exception) {
                 _searchResultsState.value = Resource.Error(e.message ?: "Failed to get shops")
             }
         }
     }
 
-    // ============= FAVORITES =============
+    // ============= FAVORITES FUNCTIONS =============
 
     fun addToFavorites(shop: Shop) {
+        Log.d(TAG, "addToFavorites - shopId: ${shop.shopId}, name: ${shop.shopName}")
         if (shop.shopId.isBlank()) return
         viewModelScope.launch {
             try {
-                shopRepository.addToFavorites(shop)
-                getFavoriteShops()
-                when (shop.shopType) {
-                    ShopType.PRODUCT -> getFavoriteProductShops()
-                    ShopType.SERVICE -> getFavoriteServiceShops()
+                shopRepository.addToFavorites(shop).collect { result ->
+                    if (result is Resource.Success) {
+                        Log.d(TAG, "✅ Added to favorites")
+                        getFavoriteShops()
+                        when (shop.shopType) {
+                            ShopType.PRODUCT -> getFavoriteProductShops()
+                            ShopType.SERVICE -> getFavoriteServiceShops()
+                        }
+                    }
                 }
             } catch (e: Exception) {
-                // Handle error
+                Log.e(TAG, "❌ Error adding to favorites", e)
             }
         }
     }
 
     fun removeFromFavorites(shop: Shop) {
+        Log.d(TAG, "removeFromFavorites - shopId: ${shop.shopId}")
         if (shop.shopId.isBlank()) return
         viewModelScope.launch {
             try {
-                shopRepository.removeFromFavorites(shop.shopId)
-                getFavoriteShops()
-                when (shop.shopType) {
-                    ShopType.PRODUCT -> getFavoriteProductShops()
-                    ShopType.SERVICE -> getFavoriteServiceShops()
+                shopRepository.removeFromFavorites(shop.shopId).collect { result ->
+                    if (result is Resource.Success) {
+                        Log.d(TAG, "✅ Removed from favorites")
+                        getFavoriteShops()
+                        when (shop.shopType) {
+                            ShopType.PRODUCT -> getFavoriteProductShops()
+                            ShopType.SERVICE -> getFavoriteServiceShops()
+                        }
+                    }
                 }
             } catch (e: Exception) {
-                // Handle error
+                Log.e(TAG, "❌ Error removing from favorites", e)
             }
         }
     }
 
     fun getFavoriteShops() {
+        Log.d(TAG, "getFavoriteShops called")
         viewModelScope.launch {
             _favoriteShopsState.value = Resource.Loading
-            try {
-                shopRepository.getFavoriteShops().collect { _favoriteShopsState.value = it }
-            } catch (e: Exception) {
-                _favoriteShopsState.value = Resource.Error(e.message ?: "Failed to get favorites")
+            shopRepository.getFavoriteShops().collect { result ->
+                when (result) {
+                    is Resource.Success -> Log.d(TAG, "✅ Found ${result.data.size} favorite shops")
+                    is Resource.Error -> Log.e(TAG, "❌ Error: ${result.message}")
+                    else -> {}
+                }
+                _favoriteShopsState.value = result
             }
         }
     }
 
     fun getFavoriteProductShops() {
+        Log.d(TAG, "getFavoriteProductShops called")
         viewModelScope.launch {
             _favoriteProductShopsState.value = Resource.Loading
-            try {
-                shopRepository.getFavoriteShopsByType(ShopType.PRODUCT).collect { _favoriteProductShopsState.value = it }
-            } catch (e: Exception) {
-                _favoriteProductShopsState.value = Resource.Error(e.message ?: "Failed to get favorite product shops")
+            shopRepository.getFavoriteShopsByType(ShopType.PRODUCT).collect { result ->
+                _favoriteProductShopsState.value = result
             }
         }
     }
 
     fun getFavoriteServiceShops() {
+        Log.d(TAG, "getFavoriteServiceShops called")
         viewModelScope.launch {
             _favoriteServiceShopsState.value = Resource.Loading
-            try {
-                shopRepository.getFavoriteShopsByType(ShopType.SERVICE).collect { _favoriteServiceShopsState.value = it }
-            } catch (e: Exception) {
-                _favoriteServiceShopsState.value = Resource.Error(e.message ?: "Failed to get favorite service shops")
+            shopRepository.getFavoriteShopsByType(ShopType.SERVICE).collect { result ->
+                _favoriteServiceShopsState.value = result
             }
         }
     }
 
-    fun isFavorite(shopId: String): Boolean = false // TODO: Implement with repository
+    fun isFavorite(shopId: String): Boolean {
+        val favorites = _favoriteShopsState.value
+        return if (favorites is Resource.Success) {
+            favorites.data.any { it.shopId == shopId }
+        } else false
+    }
 
     // ============= FILTER MANAGEMENT =============
 
     fun setSelectedShopType(shopType: ShopType?) {
+        Log.d(TAG, "setSelectedShopType - $shopType")
         _selectedShopType.value = shopType
     }
 
     fun clearShopTypeFilter() {
+        Log.d(TAG, "clearShopTypeFilter called")
         _selectedShopType.value = null
     }
 
-    // ============= HELPER FUNCTIONS (MOVED FROM COMMON) =============
+    // ============= BOOKING FUNCTIONS =============
+
+    fun createBooking(
+        customerId: String,
+        customerName: String,
+        customerPhone: String,
+        customerEmail: String,
+        shopId: String,
+        shopName: String,
+        shopOwnerId: String,
+        serviceId: String,
+        serviceName: String,
+        servicePrice: Double,
+        serviceDuration: String,
+        bookingDate: String,
+        bookingTime: String,
+        serviceLocation: ServiceLocation,
+        serviceAddress: String = "",
+        customerCity: String = "",
+        customerPincode: String = "",
+        notes: String = ""
+    ) {
+        Log.d(TAG, "========== createBooking ==========")
+        Log.d(TAG, "📅 Date: $bookingDate, Time: $bookingTime")
+        Log.d(TAG, "🔧 Service: $serviceName, Price: $servicePrice")
+
+        viewModelScope.launch {
+            _createBookingState.value = Resource.Loading
+
+            val booking = Booking(
+                customerId = customerId,
+                customerName = customerName,
+                customerPhone = customerPhone,
+                customerEmail = customerEmail,
+                shopId = shopId,
+                shopName = shopName,
+                shopOwnerId = shopOwnerId,
+                serviceId = serviceId,
+                serviceName = serviceName,
+                servicePrice = servicePrice,
+                serviceDuration = serviceDuration,
+                bookingDate = bookingDate,
+                bookingTime = bookingTime,
+                serviceLocation = serviceLocation,
+                serviceAddress = serviceAddress,
+                customerCity = customerCity,
+                customerPincode = customerPincode,
+                notes = notes,
+                status = BookingStatus.PENDING,
+                paymentStatus = PaymentStatus.PENDING
+            )
+
+            shopRepository.createBooking(booking).collect { result ->
+                when (result) {
+                    is Resource.Success -> Log.d(TAG, "✅ Booking created: ${result.data.bookingId}")
+                    is Resource.Error -> Log.e(TAG, "❌ Error: ${result.message}")
+                    is Resource.Loading -> Log.d(TAG, "⏳ Creating booking...")
+                    else -> {}
+                }
+                _createBookingState.value = result
+                if (result is Resource.Success) {
+                    getMyBookings(customerId)
+                }
+            }
+        }
+    }
+
+    fun getMyBookings(customerId: String) {
+        Log.d(TAG, "getMyBookings - customerId: $customerId")
+        if (customerId.isBlank()) {
+            _myBookingsState.value = Resource.Error("Customer ID cannot be empty")
+            return
+        }
+
+        viewModelScope.launch {
+            _myBookingsState.value = Resource.Loading
+            shopRepository.getBookingsByCustomer(customerId).collect { result ->
+                when (result) {
+                    is Resource.Success -> Log.d(TAG, "✅ Found ${result.data.size} bookings")
+                    is Resource.Error -> Log.e(TAG, "❌ Error: ${result.message}")
+                    else -> {}
+                }
+                _myBookingsState.value = result
+            }
+        }
+    }
+
+    fun getBookingDetails(bookingId: String) {
+        Log.d(TAG, "getBookingDetails - bookingId: $bookingId")
+        if (bookingId.isBlank()) {
+            _bookingDetailsState.value = Resource.Error("Booking ID cannot be empty")
+            return
+        }
+
+        viewModelScope.launch {
+            _bookingDetailsState.value = Resource.Loading
+            shopRepository.getBookingById(bookingId).collect { result ->
+                _bookingDetailsState.value = result
+            }
+        }
+    }
+
+    fun getAvailableTimeSlots(shopId: String, date: String) {
+        Log.d(TAG, "getAvailableTimeSlots - shopId: $shopId, date: $date")
+        if (shopId.isBlank()) {
+            _availableTimeSlotsState.value = Resource.Error("Shop ID cannot be empty")
+            return
+        }
+
+        if (date.isBlank()) {
+            _availableTimeSlotsState.value = Resource.Error("Date cannot be empty")
+            return
+        }
+
+        viewModelScope.launch {
+            _availableTimeSlotsState.value = Resource.Loading
+            shopRepository.getAvailableTimeSlots(shopId, date).collect { result ->
+                when (result) {
+                    is Resource.Success -> Log.d(TAG, "✅ Found ${result.data.size} available slots")
+                    is Resource.Error -> Log.e(TAG, "❌ Error: ${result.message}")
+                    else -> {}
+                }
+                _availableTimeSlotsState.value = result
+            }
+        }
+    }
+
+    fun cancelBooking(bookingId: String, reason: String, customerId: String) {
+        Log.d(TAG, "cancelBooking - bookingId: $bookingId, reason: $reason")
+        if (bookingId.isBlank()) {
+            _cancelBookingState.value = Resource.Error("Booking ID cannot be empty")
+            return
+        }
+
+        viewModelScope.launch {
+            _cancelBookingState.value = Resource.Loading
+            shopRepository.cancelBooking(bookingId, reason, "customer").collect { result ->
+                when (result) {
+                    is Resource.Success -> Log.d(TAG, "✅ Booking cancelled successfully")
+                    is Resource.Error -> Log.e(TAG, "❌ Error: ${result.message}")
+                    else -> {}
+                }
+                _cancelBookingState.value = result
+                if (result is Resource.Success) {
+                    getMyBookings(customerId)
+                }
+            }
+        }
+    }
+
+    fun listenToBookingUpdates(bookingId: String): Flow<Resource<Booking>> = callbackFlow {
+        Log.d(TAG, "listenToBookingUpdates - bookingId: $bookingId")
+        trySend(Resource.Loading)
+
+        val job = launch {
+            shopRepository.listenToCustomerBookings(bookingId).collect { result ->
+                when (result) {
+                    is Resource.Success -> {
+                        val booking = result.data.firstOrNull()
+                        if (booking != null) {
+                            trySend(Resource.Success(booking))
+                        } else {
+                            trySend(Resource.Error("Booking not found"))
+                        }
+                    }
+                    is Resource.Error -> trySend(Resource.Error(result.message))
+                    is Resource.Loading -> trySend(Resource.Loading)
+                    else -> {}
+                }
+            }
+        }
+
+        awaitClose {
+            Log.d(TAG, "listenToBookingUpdates closed for bookingId: $bookingId")
+            job.cancel()
+        }
+    }
+
+    // ============= HELPER FUNCTIONS =============
 
     fun isShopOpen(shop: Shop?): Boolean {
-        return shop != null && shop.isOpen && shop.isActive
+        return shop != null && shop.open && shop.active
     }
 
     fun getShopStatusMessage(shop: Shop?): String {
         if (shop == null) return "Shop not found"
         return when {
-            !shop.isActive -> "Permanently Closed"
-            !shop.isOpen -> "Currently Closed"
+            !shop.active -> "Permanently Closed"
+            !shop.open -> "Currently Closed"
             else -> "Open • ${shop.openingTime} - ${shop.closingTime}"
         }
     }
@@ -369,39 +773,25 @@ class CustomerShopViewModel @Inject constructor(
     }
 
     fun canAcceptOrders(shop: Shop?): Boolean {
-        return shop != null &&
-                shop.isOpen &&
-                shop.isActive &&
-                shop.totalItems > 0
+        return shop != null && shop.open && shop.active && shop.totalItems > 0
     }
 
     fun getCategoryDisplay(category: String): String {
         return when (category.lowercase()) {
-            "restaurant" -> "Restaurant 🍽️"
-            "grocery" -> "Grocery Store 🛒"
-            "medical" -> "Medical Store 💊"
-            "bakery" -> "Bakery 🥖"
-            "electronics" -> "Electronics 📱"
-            "fashion" -> "Fashion 👕"
+            "restaurant" -> "Restaurant"
+            "grocery" -> "Grocery Store"
+            "medical" -> "Medical Store"
+            "bakery" -> "Bakery"
+            "electronics" -> "Electronics"
+            "fashion" -> "Fashion"
             else -> category
         }
     }
 
-    fun hasLogo(shop: Shop?): Boolean {
-        return shop?.hasLogo == true && shop.logo.isNotBlank()
-    }
-
-    fun hasCover(shop: Shop?): Boolean {
-        return shop?.hasCover == true && shop.coverImage.isNotBlank()
-    }
-
-    fun getLogo(shop: Shop?): String {
-        return shop?.logo ?: ""
-    }
-
-    fun getCover(shop: Shop?): String {
-        return shop?.coverImage ?: ""
-    }
+    fun hasLogo(shop: Shop?): Boolean = shop?.hasLogo == true && shop.logo.isNotBlank()
+    fun hasCover(shop: Shop?): Boolean = shop?.hasCover == true && shop.coverImage.isNotBlank()
+    fun getLogo(shop: Shop?): String = shop?.logo ?: ""
+    fun getCover(shop: Shop?): String = shop?.coverImage ?: ""
 
     fun isProductShop(shop: Shop?): Boolean = shop?.shopType == ShopType.PRODUCT
     fun isServiceShop(shop: Shop?): Boolean = shop?.shopType == ShopType.SERVICE
@@ -422,79 +812,70 @@ class CustomerShopViewModel @Inject constructor(
         return if (type == null) shops else shops.filter { it.shopType == type }
     }
 
-    // ============= STATE RESET =============
+    // ============= STATE RESET FUNCTIONS =============
 
     fun resetNearbyShops() {
-        _nearbyShopsState.value = Resource.Loading
-        _nearbyProductShopsState.value = Resource.Loading
-        _nearbyServiceShopsState.value = Resource.Loading
+        Log.d(TAG, "resetNearbyShops called")
+        _nearbyShopsState.value = Resource.Idle
+        _nearbyProductShopsState.value = Resource.Idle
+        _nearbyServiceShopsState.value = Resource.Idle
     }
 
     fun resetSearchResults() {
-        _searchResultsState.value = Resource.Loading
+        Log.d(TAG, "resetSearchResults called")
+        _searchResultsState.value = Resource.Idle
     }
 
     fun resetFavorites() {
-        _favoriteShopsState.value = Resource.Loading
-        _favoriteProductShopsState.value = Resource.Loading
-        _favoriteServiceShopsState.value = Resource.Loading
+        Log.d(TAG, "resetFavorites called")
+        _favoriteShopsState.value = Resource.Idle
+        _favoriteProductShopsState.value = Resource.Idle
+        _favoriteServiceShopsState.value = Resource.Idle
     }
 
     fun resetCategories() {
-        _shopCategoriesState.value = Resource.Loading
-        _productCategoriesState.value = Resource.Loading
-        _serviceCategoriesState.value = Resource.Loading
+        Log.d(TAG, "resetCategories called")
+        _shopCategoriesState.value = Resource.Idle
+        _productCategoriesState.value = Resource.Idle
+        _serviceCategoriesState.value = Resource.Idle
     }
 
     fun resetShopDetails() {
-        _shopDetailsState.value = Resource.Loading
+        Log.d(TAG, "resetShopDetails called")
+        _shopDetailsState.value = Resource.Idle
     }
 
     fun resetShopRating() {
-        _shopRatingState.value = Resource.Loading
+        Log.d(TAG, "resetShopRating called")
+        _shopRatingState.value = Resource.Idle
+    }
+
+    fun resetBookingStates() {
+        Log.d(TAG, "resetBookingStates called")
+        _createBookingState.value = Resource.Idle
+        _myBookingsState.value = Resource.Idle
+        _bookingDetailsState.value = Resource.Idle
+        _availableTimeSlotsState.value = Resource.Idle
+        _cancelBookingState.value = Resource.Idle
     }
 
     fun resetAll() {
+        Log.d(TAG, "resetAll called - resetting all states")
         resetNearbyShops()
         resetSearchResults()
         resetFavorites()
         resetCategories()
         resetShopDetails()
         resetShopRating()
+        resetBookingStates()
         clearShopTypeFilter()
     }
 
     // ============= CLEANUP =============
 
     override fun onCleared() {
+        Log.d(TAG, "========== ViewModel onCleared ==========")
         super.onCleared()
         resetAll()
     }
-
-
-
-    private fun mockAllShops(): List<Shop> = listOf(
-        Shop(shopName = "Pizza House", category = "Restaurant", rating = 4.5, shopType = ShopType.PRODUCT),
-        Shop(shopName = "Fresh Mart", category = "Grocery", rating = 4.2, shopType = ShopType.PRODUCT),
-        Shop(shopName = "MedPlus", category = "Medical", rating = 4.8, shopType = ShopType.PRODUCT),
-        Shop(shopName = "Quick Mechanic", category = "Automotive", rating = 4.7, shopType = ShopType.SERVICE),
-        Shop(shopName = "Style Salon", category = "Beauty", rating = 4.5, shopType = ShopType.SERVICE)
-    )
-
-    private fun mockProductShops(): List<Shop> = mockAllShops().filter { it.shopType == ShopType.PRODUCT }
-    private fun mockServiceShops(): List<Shop> = mockAllShops().filter { it.shopType == ShopType.SERVICE }
-
-    private fun mockCategoriesWithType(): List<CategoryWithType> = listOf(
-        CategoryWithType("Restaurant", ShopType.PRODUCT),
-        CategoryWithType("Grocery", ShopType.PRODUCT),
-        CategoryWithType("Medical", ShopType.PRODUCT),
-        CategoryWithType("Automotive", ShopType.SERVICE),
-        CategoryWithType("Beauty", ShopType.SERVICE)
-    )
-
-    private fun mockProductCategories(): List<String> = listOf("Restaurant", "Grocery", "Medical", "Bakery", "Electronics", "Fashion")
-    private fun mockServiceCategories(): List<String> = listOf("Automotive", "Beauty", "Repair", "Cleaning", "Plumbing", "Electrical")
-
-
 }
-

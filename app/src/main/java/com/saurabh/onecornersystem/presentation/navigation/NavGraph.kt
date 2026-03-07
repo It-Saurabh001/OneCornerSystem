@@ -33,7 +33,7 @@ import com.saurabh.onecornersystem.presentation.auth.LoginScreen
 import com.saurabh.onecornersystem.presentation.auth.RegisterScreen
 import com.saurabh.onecornersystem.presentation.auth.viewmodel.AuthViewModel
 import com.saurabh.onecornersystem.presentation.common.ProfileScreen
-import com.saurabh.onecornersystem.presentation.customer.CustomerHomeScreen
+import com.saurabh.onecornersystem.presentation.customer.*
 import com.saurabh.onecornersystem.presentation.customer.viewmodel.CustomerShopViewModel
 import com.saurabh.onecornersystem.presentation.shopowner.AddProductScreen
 import com.saurabh.onecornersystem.presentation.shopowner.AddServiceScreen
@@ -44,13 +44,11 @@ import com.saurabh.onecornersystem.presentation.shopowner.EditShopScreen
 import com.saurabh.onecornersystem.presentation.shopowner.ProductListScreen
 import com.saurabh.onecornersystem.presentation.shopowner.ServiceDetailsScreen
 import com.saurabh.onecornersystem.presentation.shopowner.ServiceListScreen
-import com.saurabh.onecornersystem.presentation.shopowner.ShopOwnerHomeScreen
 import com.saurabh.onecornersystem.presentation.shopowner.ShopOwnerHomeScreen1
 import com.saurabh.onecornersystem.presentation.shopowner.viewmodel.ShopItemViewModel
 import com.saurabh.onecornersystem.presentation.shopowner.viewmodel.ShopViewModel
 import com.saurabh.onecornersystem.presentation.splash.SplashScreen
 import com.saurabh.onecornersystem.utils.Resource
-
 
 @Composable
 fun AppNavGraph(
@@ -156,38 +154,105 @@ fun AppNavGraph(
             )
         }
 
-        // ============= CUSTOMER HOME =============
+        // ============= CUSTOMER SCREENS =============
+
+        // Customer Home
         composable(Screen.CustomerHome.route) {
             val currentUser by authViewModel.currentUser.collectAsState()
             Log.d("NavGraph_CustomerHome", "CustomerHome Screen displayed - userId: ${currentUser?.userId}")
 
             CustomerHomeScreen(
+                navController = navController,
                 currentUser = currentUser,
-                onShopClick = { shopId ->
-                    Log.d("NavGraph_CustomerHome", "Shop clicked - shopId: $shopId")
-                    navController.navigate(Screen.ShopDetails.passShopId(shopId))
-                },
-                onCartClick = {
-                    Log.d("NavGraph_CustomerHome", "Cart clicked")
-                    navController.navigate(Screen.Cart.route)
-                },
-                onOrdersClick = {
-                    Log.d("NavGraph_CustomerHome", "Orders clicked")
-                    navController.navigate(Screen.Orders.route)
-                },
-                onProfileClick = {
-                    Log.d("NavGraph_CustomerHome", "Profile clicked")
-                    navController.navigate(Screen.Profile.route)
-                },
-                onProfileDrawerClick = {
-                    Log.d("NavGraph_CustomerHome", "Profile drawer clicked")
-                    navController.navigate(Screen.Profile.route)
-                },
-                onSettingsClick = { Log.d("NavGraph_CustomerHome", "Settings clicked") },
-                onAboutClick = { Log.d("NavGraph_CustomerHome", "About clicked") },
-                onThemeClick = { Log.d("NavGraph_CustomerHome", "Theme clicked") },
-                onContactClick = { Log.d("NavGraph_CustomerHome", "Contact clicked") }
+                viewModel = customerShopViewModel
             )
+        }
+
+        // Service Shop Details
+        composable(
+            route = Screen.ServiceShop.route,
+            arguments = listOf(navArgument("shopId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val shopId = backStackEntry.arguments?.getString("shopId") ?: ""
+            Log.d("NavGraph_ServiceShop", "ServiceShop Screen displayed - shopId: $shopId")
+
+            ServiceShopDetailsScreen(
+                shopId = shopId,
+                navController = navController
+            )
+        }
+
+        // Booking Form
+        composable(
+            route = Screen.BookingForm.route,
+            arguments = listOf(navArgument("serviceId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val serviceId = backStackEntry.arguments?.getString("serviceId") ?: ""
+            Log.d("NavGraph_BookingForm", "BookingForm Screen displayed - serviceId: $serviceId")
+
+            BookingFormScreen(
+                serviceId = serviceId,
+                navController = navController
+            )
+        }
+
+        // My Bookings
+        composable(Screen.MyBookings.route) {
+            Log.d("NavGraph_MyBookings", "MyBookings Screen displayed")
+
+            MyBookingsScreen(
+                navController = navController
+            )
+        }
+
+        // Booking Details
+        composable(
+            route = Screen.BookingDetails.route,
+            arguments = listOf(navArgument("bookingId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val bookingId = backStackEntry.arguments?.getString("bookingId") ?: ""
+            Log.d("NavGraph_BookingDetails", "BookingDetails Screen displayed - bookingId: $bookingId")
+
+            BookingDetailsScreen(
+                bookingId = bookingId,
+                navController = navController
+            )
+        }
+
+        // Favorites
+        composable(Screen.Favorites.route) {
+            Log.d("NavGraph_Favorites", "Favorites Screen displayed")
+
+            FavoritesScreen(
+                navController = navController,
+                viewModel = customerShopViewModel
+            )
+        }
+
+        // Search Results
+        composable(
+            route = Screen.SearchResults.route,
+            arguments = listOf(
+                navArgument("query") { type = NavType.StringType },
+                navArgument("type") { type = NavType.StringType }
+            )
+        ) { backStackEntry ->
+            val query = backStackEntry.arguments?.getString("query") ?: ""
+            val type = backStackEntry.arguments?.getString("type") ?: "SERVICE"
+            Log.d("NavGraph_SearchResults", "SearchResults Screen displayed - query: $query, type: $type")
+
+            // SearchResultsScreen(query = query, shopType = ShopType.valueOf(type))
+            PlaceholderScreen(title = "Search Results for '$query'") {
+                navController.popBackStack()
+            }
+        }
+
+        // All Services
+        composable(Screen.AllServices.route) {
+            Log.d("NavGraph_AllServices", "All Services Screen displayed")
+            PlaceholderScreen(title = "All Services") {
+                navController.popBackStack()
+            }
         }
 
         // ============= SHOP OWNER HOME =============
@@ -554,6 +619,7 @@ fun AppNavGraph(
 
         composable(Screen.Profile.route) {
             val currentUser by authViewModel.currentUser.collectAsState()
+
             val myShopState by shopViewModel.myShopState.collectAsState()
             Log.d("NavGraph_Profile", "Profile Screen displayed - userId: ${currentUser?.userId}, role: ${currentUser?.role}")
 
@@ -593,6 +659,17 @@ fun AppNavGraph(
                             Log.d("NavGraph_Profile", "Shop clicked - navigating to shop details")
                             navController.navigate("my_shop_details/${it.shopId}")
                         }
+                    },
+                    onHomeClick = {
+                        navController.navigate(Screen.CustomerHome.route) {
+                            popUpTo(Screen.CustomerHome.route) { inclusive = true }
+                        }
+                    },
+                    onBookingsClick = {
+                        navController.navigate(Screen.MyBookings.route)
+                    },
+                    onFavoritesClick = {
+                        navController.navigate(Screen.Favorites.route)
                     }
                 )
             } else {
@@ -601,16 +678,6 @@ fun AppNavGraph(
                     navController.popBackStack()
                 }
             }
-        }
-
-        // ============= SHOP DETAILS =============
-        composable(
-            route = Screen.ShopDetails.route,
-            arguments = listOf(navArgument("shopId") { type = NavType.StringType })
-        ) { backStackEntry ->
-            val shopId = backStackEntry.arguments?.getString("shopId") ?: ""
-            Log.d("NavGraph_ShopDetails", "ShopDetails Screen displayed - shopId: $shopId")
-            // ShopDetailsScreen(shopId = shopId)
         }
     }
 }
@@ -636,15 +703,31 @@ fun PlaceholderScreen(
     }
 }
 
-
 sealed class Screen(val route: String) {
     // Splash & Auth
     object Splash : Screen("splash")
     object Login : Screen("login")
     object Register : Screen("register")
 
-    // Customer
+    // Customer Screens
     object CustomerHome : Screen("customer_home")
+    object ServiceShop : Screen("service_shop/{shopId}") {
+        fun passShopId(shopId: String) = "service_shop/$shopId"
+    }
+    object BookingForm : Screen("booking_form/{serviceId}") {
+        fun passServiceId(serviceId: String) = "booking_form/$serviceId"
+    }
+    object MyBookings : Screen("my_bookings")
+    object BookingDetails : Screen("booking_details/{bookingId}") {
+        fun passBookingId(bookingId: String) = "booking_details/$bookingId"
+    }
+    object Favorites : Screen("favorites")
+    object SearchResults : Screen("search_results?query={query}&type={type}") {
+        fun passQuery(query: String, type: String) = "search_results?query=$query&type=$type"
+    }
+    object AllServices : Screen("all_services")
+
+    // Customer Product Screens (for product-based shops)
     object ShopDetails : Screen("shop_details/{shopId}") {
         fun passShopId(shopId: String) = "shop_details/$shopId"
     }
@@ -655,7 +738,7 @@ sealed class Screen(val route: String) {
         fun passItemId(itemId: String) = "service_details/$itemId"
     }
 
-    // Shop Owner
+    // Shop Owner Screens
     object ShopOwnerHome : Screen("shop_owner_home")
     object CreateShop : Screen("create_shop")
     object MyShopDetails : Screen("my_shop_details/{shopId}") {
@@ -698,4 +781,3 @@ sealed class Screen(val route: String) {
         fun passChatId(chatId: String) = "chat/$chatId"
     }
 }
-

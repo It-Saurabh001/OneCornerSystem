@@ -40,12 +40,19 @@ fun LoginScreen(
 ){
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
+    var hasAttemptedLogin by remember { mutableStateOf(false) }
     val loginState by viewModel.loginState.collectAsState()
 
-    // Handle login result
+    // Reset login state when screen is first displayed
+    LaunchedEffect(Unit) {
+        viewModel.resetStates()
+    }
+
+    // Handle login result - only if login was attempted from this screen
     LaunchedEffect(loginState) {
-        if (loginState is Resource.Success) {
+        if (hasAttemptedLogin && loginState is Resource.Success) {
             val user = (loginState as Resource.Success).data
+            hasAttemptedLogin = false // Reset flag
             onLoginSuccess(user.role)
         }
     }
@@ -103,7 +110,10 @@ fun LoginScreen(
 
             // Login Button
             Button(
-                onClick = { viewModel.login(email, password) },
+                onClick = {
+                    hasAttemptedLogin = true
+                    viewModel.login(email, password)
+                },
                 modifier = Modifier.fillMaxWidth(),
                 enabled = !loginState.isLoading()
             ) {

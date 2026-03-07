@@ -1,6 +1,12 @@
 package com.saurabh.onecornersystem.presentation.shopowner
 
+import android.Manifest
+import android.annotation.SuppressLint
+import android.content.Context
+import android.content.pm.PackageManager
+import android.location.LocationManager
 import android.net.Uri
+import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -25,6 +31,8 @@ import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Image
+import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.filled.ShoppingBag
 import androidx.compose.material.icons.filled.Store
@@ -36,6 +44,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -52,19 +61,23 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import coil.compose.rememberAsyncImagePainter
+import com.google.android.gms.location.LocationServices
 import com.saurabh.onecornersystem.data.model.ShopType
 import com.saurabh.onecornersystem.presentation.CameraCaptureScreen
 import com.saurabh.onecornersystem.presentation.ImagePickerDialog
 import com.saurabh.onecornersystem.presentation.shopowner.viewmodel.ShopViewModel
 import com.saurabh.onecornersystem.utils.Resource
 
+@SuppressLint("MissingPermission")
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CreateShopScreen(
@@ -73,6 +86,8 @@ fun CreateShopScreen(
     shopType: ShopType,
     viewModel: ShopViewModel = hiltViewModel()
 ) {
+    val context = LocalContext.current
+
     var shopName by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
     var address by remember { mutableStateOf("") }
@@ -84,11 +99,62 @@ fun CreateShopScreen(
     var closingTime by remember { mutableStateOf("21:00") }
     var latitude by remember { mutableStateOf(0.0) }
     var longitude by remember { mutableStateOf(0.0) }
+    var locationFetched by remember { mutableStateOf(false) }
+    var fetchingLocation by remember { mutableStateOf(false) }
 
     var logoUri by remember { mutableStateOf<Uri?>(null) }
     var coverUri by remember { mutableStateOf<Uri?>(null) }
     var showCameraFor by remember { mutableStateOf<String?>(null) } // "logo" or "cover"
     var showImageOptionsFor by remember { mutableStateOf<String?>(null) }
+
+    // Location permission launcher
+    val locationPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        val fineLocationGranted = permissions[Manifest.permission.ACCESS_FINE_LOCATION] ?: false
+        val coarseLocationGranted = permissions[Manifest.permission.ACCESS_COARSE_LOCATION] ?: false
+
+        if (fineLocationGranted || coarseLocationGranted) {
+            // Fetch location
+            fetchingLocation = true
+            fetchCurrentLocation(context) { lat, lng ->
+                latitude = lat
+                longitude = lng
+                locationFetched = true
+                fetchingLocation = false
+                Log.d("CreateShopScreen", "Location fetched: $lat, $lng")
+            }
+        }
+    }
+
+    // Function to request location
+    fun requestLocation() {
+        val hasFineLocation = ContextCompat.checkSelfPermission(
+            context, Manifest.permission.ACCESS_FINE_LOCATION
+        ) == PackageManager.PERMISSION_GRANTED
+
+        val hasCoarseLocation = ContextCompat.checkSelfPermission(
+            context, Manifest.permission.ACCESS_COARSE_LOCATION
+        ) == PackageManager.PERMISSION_GRANTED
+
+        if (hasFineLocation || hasCoarseLocation) {
+            fetchingLocation = true
+            fetchCurrentLocation(context) { lat, lng ->
+                latitude = lat
+                longitude = lng
+                locationFetched = true
+                fetchingLocation = false
+                Log.d("CreateShopScreen", "Location fetched: $lat, $lng")
+            }
+        } else {
+            locationPermissionLauncher.launch(
+                arrayOf(
+                    Manifest.permission.ACCESS_FINE_LOCATION,
+                    Manifest.permission.ACCESS_COARSE_LOCATION
+                )
+            )
+        }
+    }
 
     val photoPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickVisualMedia(),
@@ -278,11 +344,42 @@ fun CreateShopScreen(
                 ) {
                     Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         Text(text = "Shop Location", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+
+                        // GPS Location Button
+                        OutlinedButton(
+                            onClick = { requestLocation() },
+                            modifier = Modifier.fillMaxWidth(),
+                            enabled = !fetchingLocation
+                        ) {
+                            if (fetchingLocation) {
+                                CircularProgressIndicator(modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("Fetching Location...")
+                            } else {
+                                Icon(Icons.Default.MyLocation, contentDescription = null)
+                                Spacer(modifier = Modifier.width(8.dp))
+                                if (locationFetched) {
+                                    Text("📍 Location Captured")
+                                } else {
+                                    Text("Get Current Location")
+                                }
+                            }
+                        }
+
+                        if (locationFetched) {
+                            Text(
+                                text = "Coordinates: ${String.format("%.6f", latitude)}, ${String.format("%.6f", longitude)}",
+                                fontSize = 12.sp,
+                                color = Color.Gray
+                            )
+                        }
+
                         OutlinedTextField(
                             value = address,
                             onValueChange = { address = it },
                             label = { Text("Street Address *") },
                             modifier = Modifier.fillMaxWidth(),
+                            leadingIcon = { Icon(Icons.Default.LocationOn, contentDescription = null) },
                             minLines = 2
                         )
                         Row(
@@ -402,5 +499,50 @@ fun CreateShopScreen(
                 showImageOptionsFor = null
             }
         )
+    }
+}
+
+/**
+ * Fetch current location using FusedLocationProviderClient
+ */
+@SuppressLint("MissingPermission")
+private fun fetchCurrentLocation(
+    context: Context,
+    onLocationFetched: (latitude: Double, longitude: Double) -> Unit
+) {
+    try {
+        val fusedLocationClient = LocationServices.getFusedLocationProviderClient(context)
+
+        fusedLocationClient.lastLocation
+            .addOnSuccessListener { location ->
+                if (location != null) {
+                    onLocationFetched(location.latitude, location.longitude)
+                    Log.d("CreateShopScreen", "Location success: ${location.latitude}, ${location.longitude}")
+                } else {
+                    // Try to get fresh location if lastLocation is null
+                    Log.d("CreateShopScreen", "Last location is null, trying fresh location")
+
+                    // Use LocationManager as fallback
+                    val locationManager = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
+                    val lastKnownLocation = locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER)
+                        ?: locationManager.getLastKnownLocation(LocationManager.NETWORK_PROVIDER)
+
+                    if (lastKnownLocation != null) {
+                        onLocationFetched(lastKnownLocation.latitude, lastKnownLocation.longitude)
+                        Log.d("CreateShopScreen", "LocationManager location: ${lastKnownLocation.latitude}, ${lastKnownLocation.longitude}")
+                    } else {
+                        // Default to a fallback location (can be changed)
+                        Log.d("CreateShopScreen", "Could not get location, using default")
+                        onLocationFetched(0.0, 0.0)
+                    }
+                }
+            }
+            .addOnFailureListener { e ->
+                Log.e("CreateShopScreen", "Failed to get location", e)
+                onLocationFetched(0.0, 0.0)
+            }
+    } catch (e: Exception) {
+        Log.e("CreateShopScreen", "Exception in fetchCurrentLocation", e)
+        onLocationFetched(0.0, 0.0)
     }
 }

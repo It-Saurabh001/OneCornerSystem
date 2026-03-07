@@ -1,15 +1,5 @@
 package com.saurabh.onecornersystem.utils
 
-sealed class Resource1 <T>(
-    val data: T? = null,
-    val message: String? = null
-){
-    class Loading<T> : Resource<T>()
-    class Success<T>(data: T) : Resource1<T>(data)
-    class Error<T>(message: String) : Resource1<T>(message = message)
-}
-
-
 
 sealed class Resource<out T> {
     data class Success<out T>(val data: T) : Resource<T>()

@@ -59,13 +59,20 @@ fun RegisterScreen(
     var selectedRole by remember { mutableStateOf("customer") } // "customer" or "shop_owner"
     var selectedShopType by remember { mutableStateOf<com.saurabh.onecornersystem.data.model.ShopType?>(null) } // PRODUCT or SERVICE
     var passwordError by remember { mutableStateOf<String?>(null) }
+    var hasAttemptedRegister by remember { mutableStateOf(false) }
 
     val registerState by viewModel.registerState.collectAsState()
 
-    // Handle registration result
+    // Reset register state when screen is first displayed
+    LaunchedEffect(Unit) {
+        viewModel.resetStates()
+    }
+
+    // Handle registration result - only if register was attempted from this screen
     LaunchedEffect(registerState) {
-        if (registerState is Resource.Success) {
+        if (hasAttemptedRegister && registerState is Resource.Success) {
             val user = (registerState as Resource.Success).data
+            hasAttemptedRegister = false // Reset flag
             onRegisterSuccess(user.role)
         }
     }
@@ -267,6 +274,7 @@ fun RegisterScreen(
                 Button(
                     onClick = {
                         if (password == confirmPassword) {
+                            hasAttemptedRegister = true
                             // If shop owner, shopType must be selected
                             val shopTypeToSend = if (selectedRole == "shop_owner") selectedShopType else null
                             viewModel.register(email, password, name, phone, selectedRole, shopTypeToSend)

@@ -25,6 +25,12 @@ interface ShopItemRepository {
         itemType: ShopType
     ): Flow<Resource<List<ShopItem>>>
 
+    // ============= SEARCH =============
+    fun searchServices(
+        query: String,
+        shopType: ShopType = ShopType.SERVICE
+    ): Flow<Resource<List<ShopItem>>>
+
     // ============= UPDATE =============
     fun updateItem(
         itemId: String,

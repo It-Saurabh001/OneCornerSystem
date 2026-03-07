@@ -1,5 +1,11 @@
 package com.saurabh.onecornersystem.presentation.common
 
+import android.Manifest
+import android.content.Intent
+import android.location.Location
+import android.provider.Settings
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -20,23 +26,29 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.DarkMode
+import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Help
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Logout
+import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material.icons.filled.Store
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Divider
 import androidx.compose.material3.DividerDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -46,12 +58,20 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -59,6 +79,7 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -67,6 +88,8 @@ import com.saurabh.onecornersystem.data.model.Shop
 import com.saurabh.onecornersystem.data.model.ShopType
 import com.saurabh.onecornersystem.data.model.User
 import com.saurabh.onecornersystem.ui.theme.OneCornerSystemTheme
+import com.saurabh.onecornersystem.utils.LocationUtils
+import kotlinx.coroutines.launch
 
 // Profile screen with persistent login and navigation drawer integration
 @OptIn(ExperimentalMaterial3Api::class)
@@ -77,10 +100,47 @@ fun ProfileScreen(
     onBackClick: () -> Unit,
     onEditClick: () -> Unit,
     onLogoutClick: () -> Unit,
-    onShopClick: () -> Unit = {}
+    onShopClick: () -> Unit = {},
+    onHomeClick: () -> Unit = {},
+    onBookingsClick: () -> Unit = {},
+    onFavoritesClick: () -> Unit = {}
 ) {
+    // Check if user is customer (not shop_owner)
+    val isCustomer = user.role == "customer"
+
     val scrollState = rememberScrollState()
     Scaffold(
+        bottomBar = {
+            // Show bottom navigation only for customers
+            if (isCustomer) {
+                NavigationBar {
+                    NavigationBarItem(
+                        selected = false,
+                        onClick = onHomeClick,
+                        icon = { Icon(Icons.Default.Home, contentDescription = "Home") },
+                        label = { Text("Home") }
+                    )
+                    NavigationBarItem(
+                        selected = false,
+                        onClick = onBookingsClick,
+                        icon = { Icon(Icons.Default.Bookmark, contentDescription = "Bookings") },
+                        label = { Text("Bookings") }
+                    )
+                    NavigationBarItem(
+                        selected = false,
+                        onClick = onFavoritesClick,
+                        icon = { Icon(Icons.Default.Favorite, contentDescription = "Favorites") },
+                        label = { Text("Favorites") }
+                    )
+                    NavigationBarItem(
+                        selected = true,
+                        onClick = { },
+                        icon = { Icon(Icons.Default.Person, contentDescription = "Profile") },
+                        label = { Text("Profile") }
+                    )
+                }
+            }
+        }
     ) { padding ->
         Column(
             modifier = Modifier
@@ -386,6 +446,8 @@ fun ProfileScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
+            // Location Section Card
+            LocationSectionCard()
 
             Spacer(modifier = Modifier.height(20.dp))
 
@@ -494,8 +556,306 @@ fun ProfileScreenPreview() {
             ),
             onBackClick = {},
             onEditClick = {},
-            onLogoutClick = {}
+            onLogoutClick = {},
+            onHomeClick = {},
+            onBookingsClick = {},
+            onFavoritesClick = {}
         )
+    }
+}
+
+/**
+ * Location Section Card with current location fetch capability
+ */
+@Composable
+fun LocationSectionCard() {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+
+    var currentLocation by remember { mutableStateOf<Location?>(null) }
+    var isLoadingLocation by remember { mutableStateOf(false) }
+    var showLocationSettingsDialog by remember { mutableStateOf(false) }
+    var locationError by remember { mutableStateOf<String?>(null) }
+
+    // Location permission launcher
+    val locationPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        val granted = permissions[Manifest.permission.ACCESS_FINE_LOCATION] == true ||
+                     permissions[Manifest.permission.ACCESS_COARSE_LOCATION] == true
+        if (granted) {
+            scope.launch {
+                if (LocationUtils.isLocationEnabled(context)) {
+                    isLoadingLocation = true
+                    locationError = null
+                    currentLocation = LocationUtils.getFreshCurrentLocation(context)
+                    if (currentLocation == null) {
+                        locationError = "Could not fetch location"
+                    }
+                    isLoadingLocation = false
+                } else {
+                    showLocationSettingsDialog = true
+                }
+            }
+        } else {
+            locationError = "Location permission denied"
+        }
+    }
+
+    // Auto-fetch location on first load
+    LaunchedEffect(Unit) {
+        if (LocationUtils.hasLocationPermission(context) && LocationUtils.isLocationEnabled(context)) {
+            isLoadingLocation = true
+            currentLocation = LocationUtils.getFreshCurrentLocation(context)
+            isLoadingLocation = false
+        }
+    }
+
+    // Function to request location
+    fun requestLocation() {
+        if (LocationUtils.hasLocationPermission(context)) {
+            if (LocationUtils.isLocationEnabled(context)) {
+                scope.launch {
+                    isLoadingLocation = true
+                    locationError = null
+                    currentLocation = LocationUtils.getFreshCurrentLocation(context)
+                    if (currentLocation == null) {
+                        locationError = "Could not fetch location. Try again."
+                    }
+                    isLoadingLocation = false
+                }
+            } else {
+                showLocationSettingsDialog = true
+            }
+        } else {
+            locationPermissionLauncher.launch(
+                arrayOf(
+                    Manifest.permission.ACCESS_FINE_LOCATION,
+                    Manifest.permission.ACCESS_COARSE_LOCATION
+                )
+            )
+        }
+    }
+
+    // Location Settings Dialog
+    if (showLocationSettingsDialog) {
+        AlertDialog(
+            onDismissRequest = { showLocationSettingsDialog = false },
+            title = { Text("Location is Off") },
+            text = { Text("Please turn on location services to get your current location.") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showLocationSettingsDialog = false
+                        context.startActivity(Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS))
+                    }
+                ) {
+                    Text("Open Settings")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showLocationSettingsDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
+    Card(
+        modifier = Modifier
+            .padding(horizontal = 16.dp)
+            .fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        elevation = CardDefaults.cardElevation(4.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = Color(0xFFF3E5F5) // Light purple background
+        )
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
+        ) {
+            // Header Row
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        Icons.Default.LocationOn,
+                        contentDescription = null,
+                        tint = Color(0xFF7B1FA2),
+                        modifier = Modifier.size(24.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "📍 My Location",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 16.sp,
+                        color = Color(0xFF7B1FA2)
+                    )
+                }
+
+                // Refresh Button
+                IconButton(
+                    onClick = { requestLocation() },
+                    enabled = !isLoadingLocation
+                ) {
+                    if (isLoadingLocation) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(20.dp),
+                            strokeWidth = 2.dp,
+                            color = Color(0xFF7B1FA2)
+                        )
+                    } else {
+                        Icon(
+                            Icons.Default.Refresh,
+                            contentDescription = "Refresh Location",
+                            tint = Color(0xFF7B1FA2)
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Location Details
+            if (currentLocation != null) {
+                // Coordinates
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        Icons.Default.MyLocation,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp),
+                        tint = Color.Gray
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Column {
+                        Text(
+                            text = "Coordinates",
+                            fontSize = 12.sp,
+                            color = Color.Gray
+                        )
+                        Text(
+                            text = "${String.format("%.6f", currentLocation!!.latitude)}, ${String.format("%.6f", currentLocation!!.longitude)}",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Accuracy
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "🎯 Accuracy: ",
+                        fontSize = 12.sp,
+                        color = Color.Gray
+                    )
+                    Text(
+                        text = "${currentLocation!!.accuracy.toInt()} meters",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // Status Badge
+                Surface(
+                    color = Color(0xFF4CAF50).copy(alpha = 0.2f),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "✅ Location Active",
+                            fontSize = 12.sp,
+                            color = Color(0xFF2E7D32),
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                }
+            } else if (locationError != null) {
+                // Error State
+                Surface(
+                    color = Color(0xFFFFCDD2),
+                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(
+                        modifier = Modifier.padding(12.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            text = "❌ $locationError",
+                            fontSize = 14.sp,
+                            color = Color(0xFFC62828)
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        OutlinedButton(
+                            onClick = { requestLocation() }
+                        ) {
+                            Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Try Again", fontSize = 12.sp)
+                        }
+                    }
+                }
+            } else if (!isLoadingLocation) {
+                // No Location State
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = "Location not fetched yet",
+                        fontSize = 14.sp,
+                        color = Color.Gray
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Button(
+                        onClick = { requestLocation() },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFF7B1FA2)
+                        )
+                    ) {
+                        Icon(Icons.Default.MyLocation, contentDescription = null)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Get Current Location")
+                    }
+                }
+            } else {
+                // Loading State
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(24.dp),
+                        strokeWidth = 2.dp
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Text(
+                        text = "Fetching your location...",
+                        fontSize = 14.sp,
+                        color = Color.Gray
+                    )
+                }
+            }
+        }
     }
 }
 

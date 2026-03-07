@@ -1,7 +1,15 @@
 package com.saurabh.onecornersystem.presentation.shopowner
 
+import android.Manifest
+import android.annotation.SuppressLint
+import android.content.Context
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.location.LocationManager
 import android.net.Uri
+import android.provider.Settings
 import android.util.Log
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -16,6 +24,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -23,7 +32,10 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Image
+import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material.icons.filled.Store
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -32,9 +44,11 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -46,20 +60,28 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import coil.compose.rememberAsyncImagePainter
+import com.google.android.gms.location.LocationServices
+import com.google.android.gms.location.Priority
+import com.google.android.gms.tasks.CancellationTokenSource
 import com.saurabh.onecornersystem.data.model.Shop
 import com.saurabh.onecornersystem.presentation.CameraCaptureScreen
 import com.saurabh.onecornersystem.presentation.ImagePickerDialog
+import com.saurabh.onecornersystem.presentation.components.Base64Image
 import com.saurabh.onecornersystem.presentation.shopowner.viewmodel.ShopViewModel
 import com.saurabh.onecornersystem.utils.Resource
 
+@SuppressLint("MissingPermission")
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EditShopScreen(
@@ -67,6 +89,7 @@ fun EditShopScreen(
     navController: NavController,
     viewModel: ShopViewModel = hiltViewModel()
 ) {
+    val context = LocalContext.current
     Log.d("EditShopScreen", "Displayed - shopId: ${shop.shopId}, shopName: ${shop.shopName}, shopType: ${shop.shopType}")
 
     var shopName by remember { mutableStateOf(shop.shopName) }
@@ -80,11 +103,106 @@ fun EditShopScreen(
     var closingTime by remember { mutableStateOf(shop.closingTime) }
     var latitude by remember { mutableStateOf(shop.location.latitude.toString()) }
     var longitude by remember { mutableStateOf(shop.location.longitude.toString()) }
+    var fetchingLocation by remember { mutableStateOf(false) }
+    var showLocationSettingsDialog by remember { mutableStateOf(false) }
 
     var logoUri by remember { mutableStateOf<Uri?>(null) }
     var coverUri by remember { mutableStateOf<Uri?>(null) }
     var showCameraFor by remember { mutableStateOf<String?>(null) } // "logo" or "cover"
     var showImageOptionsFor by remember { mutableStateOf<String?>(null) }
+
+    // Check if location is enabled
+    fun isLocationEnabled(): Boolean {
+        val locationManager = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
+        return locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER) ||
+               locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)
+    }
+
+    // Location permission launcher
+    val locationPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        val granted = permissions[Manifest.permission.ACCESS_FINE_LOCATION] == true ||
+                     permissions[Manifest.permission.ACCESS_COARSE_LOCATION] == true
+        if (granted) {
+            if (isLocationEnabled()) {
+                fetchingLocation = true
+                fetchLocationForEdit(context) { lat, lng ->
+                    if (lat != 0.0 && lng != 0.0) {
+                        latitude = String.format("%.6f", lat)
+                        longitude = String.format("%.6f", lng)
+                    }
+                    fetchingLocation = false
+                    Log.d("EditShopScreen", "Location fetched: $lat, $lng")
+                }
+            } else {
+                showLocationSettingsDialog = true
+            }
+        }
+    }
+
+    // Function to request location
+    fun requestLocation() {
+        val hasFineLocation = ContextCompat.checkSelfPermission(
+            context, Manifest.permission.ACCESS_FINE_LOCATION
+        ) == PackageManager.PERMISSION_GRANTED
+
+        val hasCoarseLocation = ContextCompat.checkSelfPermission(
+            context, Manifest.permission.ACCESS_COARSE_LOCATION
+        ) == PackageManager.PERMISSION_GRANTED
+
+        if (hasFineLocation || hasCoarseLocation) {
+            // Check if location is enabled
+            if (isLocationEnabled()) {
+                fetchingLocation = true
+                fetchLocationForEdit(context) { lat, lng ->
+                    if (lat != 0.0 && lng != 0.0) {
+                        latitude = String.format("%.6f", lat)
+                        longitude = String.format("%.6f", lng)
+                    } else {
+                        Toast.makeText(context, "Could not get location. Please try again.", Toast.LENGTH_SHORT).show()
+                    }
+                    fetchingLocation = false
+                    Log.d("EditShopScreen", "Location fetched: $lat, $lng")
+                }
+            } else {
+                // Location is off, show dialog to turn on
+                showLocationSettingsDialog = true
+            }
+        } else {
+            locationPermissionLauncher.launch(
+                arrayOf(
+                    Manifest.permission.ACCESS_FINE_LOCATION,
+                    Manifest.permission.ACCESS_COARSE_LOCATION
+                )
+            )
+        }
+    }
+
+    // Location Settings Dialog
+    if (showLocationSettingsDialog) {
+        AlertDialog(
+            onDismissRequest = { showLocationSettingsDialog = false },
+            title = { Text("Location is Off") },
+            text = { Text("Please turn on location services to get your current location.") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showLocationSettingsDialog = false
+                        // Open location settings
+                        context.startActivity(Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS))
+                    }
+                ) {
+                    Text("Open Settings")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showLocationSettingsDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
 
     val photoPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickVisualMedia(),
@@ -163,25 +281,31 @@ fun EditShopScreen(
                                 modifier = Modifier.fillMaxSize(),
                                 contentAlignment = Alignment.Center
                             ) {
-                                val imageToShow = if (logoUri != null) {
-                                    rememberAsyncImagePainter(logoUri)
-                                } else if (shop.logo.isNotBlank()) {
-                                    rememberAsyncImagePainter(shop.logo)
-                                } else {
-                                    null
-                                }
-
-                                if (imageToShow != null) {
-                                    Image(
-                                        painter = imageToShow,
-                                        contentDescription = "Logo",
-                                        modifier = Modifier.fillMaxSize(),
-                                        contentScale = ContentScale.Crop
-                                    )
-                                } else {
-                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                        Icon(Icons.Default.Store, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                                        Text("Add Logo", fontSize = 10.sp, color = MaterialTheme.colorScheme.primary)
+                                when {
+                                    logoUri != null -> {
+                                        // New image selected from gallery/camera
+                                        Image(
+                                            painter = rememberAsyncImagePainter(logoUri),
+                                            contentDescription = "Logo",
+                                            modifier = Modifier.fillMaxSize(),
+                                            contentScale = ContentScale.Crop
+                                        )
+                                    }
+                                    shop.logo.isNotBlank() -> {
+                                        // Existing Base64 image from database
+                                        Base64Image(
+                                            imageSource = shop.logo,
+                                            contentDescription = "Logo",
+                                            modifier = Modifier.fillMaxSize(),
+                                            contentScale = ContentScale.Crop
+                                        )
+                                    }
+                                    else -> {
+                                        // No image - show placeholder
+                                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                            Icon(Icons.Default.Store, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                                            Text("Add Logo", fontSize = 10.sp, color = MaterialTheme.colorScheme.primary)
+                                        }
                                     }
                                 }
                             }
@@ -203,25 +327,31 @@ fun EditShopScreen(
                                 modifier = Modifier.fillMaxSize(),
                                 contentAlignment = Alignment.Center
                             ) {
-                                val imageToShow = if (coverUri != null) {
-                                    rememberAsyncImagePainter(coverUri)
-                                } else if (shop.coverImage.isNotBlank()) {
-                                    rememberAsyncImagePainter(shop.coverImage)
-                                } else {
-                                    null
-                                }
-
-                                if (imageToShow != null) {
-                                    Image(
-                                        painter = imageToShow,
-                                        contentDescription = "Cover",
-                                        modifier = Modifier.fillMaxSize(),
-                                        contentScale = ContentScale.Crop
-                                    )
-                                } else {
-                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                        Icon(Icons.Default.Image, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                                        Text("Add Cover", fontSize = 10.sp, color = MaterialTheme.colorScheme.primary)
+                                when {
+                                    coverUri != null -> {
+                                        // New image selected from gallery/camera
+                                        Image(
+                                            painter = rememberAsyncImagePainter(coverUri),
+                                            contentDescription = "Cover",
+                                            modifier = Modifier.fillMaxSize(),
+                                            contentScale = ContentScale.Crop
+                                        )
+                                    }
+                                    shop.coverImage.isNotBlank() -> {
+                                        // Existing Base64 image from database
+                                        Base64Image(
+                                            imageSource = shop.coverImage,
+                                            contentDescription = "Cover",
+                                            modifier = Modifier.fillMaxSize(),
+                                            contentScale = ContentScale.Crop
+                                        )
+                                    }
+                                    else -> {
+                                        // No image - show placeholder
+                                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                            Icon(Icons.Default.Image, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                                            Text("Add Cover", fontSize = 10.sp, color = MaterialTheme.colorScheme.primary)
+                                        }
                                     }
                                 }
                             }
@@ -292,11 +422,13 @@ fun EditShopScreen(
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         Text(text = "Address", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+
                         OutlinedTextField(
                             value = address,
                             onValueChange = { address = it },
                             label = { Text("Street Address") },
                             modifier = Modifier.fillMaxWidth(),
+                            leadingIcon = { Icon(Icons.Default.LocationOn, contentDescription = null) },
                             minLines = 2
                         )
                         Row(
@@ -316,7 +448,35 @@ fun EditShopScreen(
                                 modifier = Modifier.weight(1f)
                             )
                         }
+
                         Text(text = "Location Coordinates", fontWeight = FontWeight.Bold, fontSize = 14.sp, modifier = Modifier.padding(top = 8.dp))
+
+                        // GPS Location Button
+                        OutlinedButton(
+                            onClick = { requestLocation() },
+                            modifier = Modifier.fillMaxWidth(),
+                            enabled = !fetchingLocation
+                        ) {
+                            if (fetchingLocation) {
+                                CircularProgressIndicator(modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("Fetching Location...")
+                            } else {
+                                Icon(Icons.Default.MyLocation, contentDescription = null)
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("Get Current Location")
+                            }
+                        }
+
+                        // Show current coordinates
+                        if (latitude.isNotBlank() && longitude.isNotBlank() &&
+                            latitude != "0.0" && longitude != "0.0") {
+                            Text(
+                                text = "📍 Current: $latitude, $longitude",
+                                fontSize = 12.sp,
+                                color = Color.Gray
+                            )
+                        }
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -448,5 +608,74 @@ fun EditShopScreen(
                 showImageOptionsFor = null
             }
         )
+    }
+}
+
+/**
+ * Fetch current location for EditShopScreen
+ * Uses getCurrentLocation for fresh location instead of lastLocation
+ */
+@SuppressLint("MissingPermission")
+private fun fetchLocationForEdit(
+    context: Context,
+    onLocationFetched: (latitude: Double, longitude: Double) -> Unit
+) {
+    try {
+        val fusedLocationClient = LocationServices.getFusedLocationProviderClient(context)
+        val cancellationTokenSource = CancellationTokenSource()
+
+        // First try getCurrentLocation for fresh location
+        fusedLocationClient.getCurrentLocation(
+            Priority.PRIORITY_HIGH_ACCURACY,
+            cancellationTokenSource.token
+        ).addOnSuccessListener { location: android.location.Location? ->
+            if (location != null) {
+                Log.d("EditShopScreen", "Fresh location fetched: ${location.latitude}, ${location.longitude}")
+                onLocationFetched(location.latitude, location.longitude)
+            } else {
+                // Fallback to lastLocation
+                fusedLocationClient.lastLocation
+                    .addOnSuccessListener { lastLocation: android.location.Location? ->
+                        if (lastLocation != null) {
+                            Log.d("EditShopScreen", "Last location: ${lastLocation.latitude}, ${lastLocation.longitude}")
+                            onLocationFetched(lastLocation.latitude, lastLocation.longitude)
+                        } else {
+                            // Try LocationManager as final fallback
+                            val locationManager = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
+                            val lastKnown = locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER)
+                                ?: locationManager.getLastKnownLocation(LocationManager.NETWORK_PROVIDER)
+
+                            if (lastKnown != null) {
+                                Log.d("EditShopScreen", "LocationManager location: ${lastKnown.latitude}, ${lastKnown.longitude}")
+                                onLocationFetched(lastKnown.latitude, lastKnown.longitude)
+                            } else {
+                                Log.d("EditShopScreen", "Could not get location from any source")
+                                onLocationFetched(0.0, 0.0)
+                            }
+                        }
+                    }
+                    .addOnFailureListener { e ->
+                        Log.e("EditShopScreen", "Failed to get last location", e)
+                        onLocationFetched(0.0, 0.0)
+                    }
+            }
+        }.addOnFailureListener { e ->
+            Log.e("EditShopScreen", "Failed to get current location, trying lastLocation", e)
+            // Fallback to lastLocation on failure
+            fusedLocationClient.lastLocation
+                .addOnSuccessListener { location: android.location.Location? ->
+                    if (location != null) {
+                        onLocationFetched(location.latitude, location.longitude)
+                    } else {
+                        onLocationFetched(0.0, 0.0)
+                    }
+                }
+                .addOnFailureListener {
+                    onLocationFetched(0.0, 0.0)
+                }
+        }
+    } catch (e: Exception) {
+        Log.e("EditShopScreen", "Exception in fetchLocationForEdit", e)
+        onLocationFetched(0.0, 0.0)
     }
 }

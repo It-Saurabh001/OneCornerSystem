@@ -1,6 +1,7 @@
 package com.saurabh.onecornersystem.data.model
 
 import com.google.firebase.Timestamp
+import com.google.firebase.firestore.PropertyName
 
 data class ShopItem(
     val itemId: String = "",
@@ -15,7 +16,8 @@ data class ShopItem(
     val discountedPrice: Double = 0.0,
     val images: List<String> = emptyList(),
     val isAvailable: Boolean = true,
-    val isActive: Boolean = true,
+//    @get:PropertyName("isActive") @set:PropertyName("isActive")
+    var active: Boolean = true,
 
     // PRODUCT-specific fields
     val sku: String = "",

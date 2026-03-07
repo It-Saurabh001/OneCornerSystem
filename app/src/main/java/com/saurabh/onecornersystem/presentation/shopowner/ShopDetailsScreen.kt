@@ -185,14 +185,14 @@ fun ShopDetailsScreen(
                         modifier = Modifier
                             .size(10.dp)
                             .background(
-                                if (shop.isOpen) Color(0xFF4CAF50) else Color(0xFFE53935),
+                                if (shop.open) Color(0xFF4CAF50) else Color(0xFFE53935),
                                 CircleShape
                             )
                     )
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        text = if (shop.isOpen) "Open Now" else "Closed",
-                        color = if (shop.isOpen) Color(0xFF4CAF50) else Color(0xFFE53935),
+                        text = if (shop.open) "Open Now" else "Closed",
+                        color = if (shop.open) Color(0xFF4CAF50) else Color(0xFFE53935),
                         fontWeight = FontWeight.Medium
                     )
                     Spacer(modifier = Modifier.width(16.dp))

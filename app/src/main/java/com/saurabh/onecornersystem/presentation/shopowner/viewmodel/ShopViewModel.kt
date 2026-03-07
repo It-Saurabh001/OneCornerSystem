@@ -28,51 +28,51 @@ class ShopViewModel @Inject constructor(
 ) : ViewModel() {
 
     // Shop Details
-    private val _shopDetailsState = MutableStateFlow<Resource<Shop>>(Resource.Loading)
+    private val _shopDetailsState = MutableStateFlow<Resource<Shop>>(Resource.Idle)
     val shopDetailsState: StateFlow<Resource<Shop>> = _shopDetailsState.asStateFlow()
 
     // My Shop (by owner)
-    private val _myShopState = MutableStateFlow<Resource<Shop>>(Resource.Loading)
+    private val _myShopState = MutableStateFlow<Resource<Shop>>(Resource.Idle)
     val myShopState: StateFlow<Resource<Shop>> = _myShopState.asStateFlow()
 
     // Update Operations
-    private val _updateShopState = MutableStateFlow<Resource<Boolean>>(Resource.Loading)
+    private val _updateShopState = MutableStateFlow<Resource<Boolean>>(Resource.Idle)
     val updateShopState: StateFlow<Resource<Boolean>> = _updateShopState.asStateFlow()
 
     // Create Shop
-    private val _createShopState = MutableStateFlow<Resource<Shop>>(Resource.Loading)
+    private val _createShopState = MutableStateFlow<Resource<Shop>>(Resource.Idle)
     val createShopState: StateFlow<Resource<Shop>> = _createShopState.asStateFlow()
 
     // Deactivate Shop
-    private val _deactivateShopState = MutableStateFlow<Resource<Boolean>>(Resource.Loading)
+    private val _deactivateShopState = MutableStateFlow<Resource<Boolean>>(Resource.Idle)
     val deactivateShopState: StateFlow<Resource<Boolean>> = _deactivateShopState.asStateFlow()
 
     // Toggle Status
-    private val _toggleStatusState = MutableStateFlow<Resource<Boolean>>(Resource.Loading)
+    private val _toggleStatusState = MutableStateFlow<Resource<Boolean>>(Resource.Idle)
     val toggleStatusState: StateFlow<Resource<Boolean>> = _toggleStatusState.asStateFlow()
 
     // Update Stats
-    private val _updateStatsState = MutableStateFlow<Resource<Boolean>>(Resource.Loading)
+    private val _updateStatsState = MutableStateFlow<Resource<Boolean>>(Resource.Idle)
     val updateStatsState: StateFlow<Resource<Boolean>> = _updateStatsState.asStateFlow()
 
     // Shop Rating
-    private val _shopRatingState = MutableStateFlow<Resource<Double>>(Resource.Loading)
+    private val _shopRatingState = MutableStateFlow<Resource<Double>>(Resource.Idle)
     val shopRatingState: StateFlow<Resource<Double>> = _shopRatingState.asStateFlow()
 
     // Image Upload
-    private val _coverUploadState = MutableStateFlow<Resource<String>>(Resource.Loading)
+    private val _coverUploadState = MutableStateFlow<Resource<String>>(Resource.Idle)
     val coverUploadState: StateFlow<Resource<String>> = _coverUploadState.asStateFlow()
 
     // Image Remove
-    private val _coverRemoveState = MutableStateFlow<Resource<Boolean>>(Resource.Loading)
+    private val _coverRemoveState = MutableStateFlow<Resource<Boolean>>(Resource.Idle)
     val coverRemoveState: StateFlow<Resource<Boolean>> = _coverRemoveState.asStateFlow()
 
     // Logo Upload
-    private val _logoUploadState = MutableStateFlow<Resource<String>>(Resource.Loading)
+    private val _logoUploadState = MutableStateFlow<Resource<String>>(Resource.Idle)
     val logoUploadState: StateFlow<Resource<String>> = _logoUploadState.asStateFlow()
 
     // Logo Remove
-    private val _logoRemoveState = MutableStateFlow<Resource<Boolean>>(Resource.Loading)
+    private val _logoRemoveState = MutableStateFlow<Resource<Boolean>>(Resource.Idle)
     val logoRemoveState: StateFlow<Resource<Boolean>> = _logoRemoveState.asStateFlow()
 
     // Combined Loading State for UI
@@ -139,8 +139,8 @@ class ShopViewModel @Inject constructor(
                 openingTime = openingTime,
                 closingTime = closingTime,
                 operatingHours = operatingHours,
-                isOpen = true,
-                isActive = true,
+                open = true,
+                active = true,
                 rating = 0.0,
                 totalRatings = 0,
                 totalItems = 0,
@@ -180,11 +180,11 @@ class ShopViewModel @Inject constructor(
             return
         }
 
-        Log.d("ShopViewModel_Details", "getShopDetails - fetching shopId: $shopId")
+        Log.d("ShopViewModel_Details", "getShopDetails - fetching shopId: $shopId, $_shopDetailsState")
         viewModelScope.launch {
             shopRepository.getShopDetails(shopId).collect { result ->
                 when (result) {
-                    is Resource.Success -> Log.d("ShopViewModel_Details", "getShopDetails - Success: ${result.data.shopName}")
+                    is Resource.Success -> Log.d("ShopViewModel_Details", "getShopDetails - Success: open: ${result.data.open} ,active: ${result.data.active}")
                     is Resource.Error -> Log.d("ShopViewModel_Details", "getShopDetails - Error: ${result.message}")
                     is Resource.Loading -> Log.d("ShopViewModel_Details", "getShopDetails - Loading...")
                     else -> {}
@@ -366,13 +366,6 @@ class ShopViewModel @Inject constructor(
         performUpdate(shopId, mapOf("averageOrderValue" to averageOrderValue))
     }
 
-    fun updateShopLocation(shopId: String, latitude: Double, longitude: Double) {
-        Log.d("ShopViewModel_Update", "updateShopLocation - shopId: $shopId, lat: $latitude, lng: $longitude")
-        val updates = mapOf(
-            "location" to com.google.firebase.firestore.GeoPoint(latitude, longitude)
-        )
-        performUpdate(shopId, updates)
-    }
 
     fun updateShopName(shopId: String, newName: String) {
         Log.d("ShopViewModel_Update", "updateShopName - shopId: $shopId, newName: $newName")
@@ -469,6 +462,30 @@ class ShopViewModel @Inject constructor(
     }
 
     // ============= SHOP STATISTICS =============
+
+    /**
+     * Update shop location - called after login when location permission is granted
+     */
+    fun updateShopLocation(shopId: String, latitude: Double, longitude: Double) {
+        Log.d("ShopViewModel_Location", "updateShopLocation - shopId: $shopId, lat: $latitude, lng: $longitude")
+        if (shopId.isBlank() || (latitude == 0.0 && longitude == 0.0)) {
+            Log.d("ShopViewModel_Location", "updateShopLocation - invalid params, skipping")
+            return
+        }
+
+        viewModelScope.launch {
+            val updates = mapOf(
+                "location" to com.google.firebase.firestore.GeoPoint(latitude, longitude)
+            )
+            shopRepository.updateShopProfile(shopId, updates).collect { result ->
+                when (result) {
+                    is Resource.Success -> Log.d("ShopViewModel_Location", "Shop location updated successfully")
+                    is Resource.Error -> Log.d("ShopViewModel_Location", "Failed to update location: ${result.message}")
+                    else -> {}
+                }
+            }
+        }
+    }
 
     fun updateShopStatistics(
         shopId: String,
@@ -685,14 +702,14 @@ class ShopViewModel @Inject constructor(
     // ============= HELPER FUNCTIONS (MOVED FROM COMMON) =============
 
     fun isShopOpen(shop: Shop?): Boolean {
-        return shop != null && shop.isOpen && shop.isActive
+        return shop != null && shop.open && shop.active
     }
 
     fun getShopStatusMessage(shop: Shop?): String {
         if (shop == null) return "Shop not found"
         return when {
-            !shop.isActive -> "Permanently Closed"
-            !shop.isOpen -> "Currently Closed"
+            !shop.active -> "Permanently Closed"
+            !shop.open -> "Currently Closed"
             else -> "Open • ${shop.openingTime} - ${shop.closingTime}"
         }
     }
@@ -722,8 +739,8 @@ class ShopViewModel @Inject constructor(
 
     fun canAcceptOrders(shop: Shop?): Boolean {
         return shop != null &&
-                shop.isOpen &&
-                shop.isActive &&
+                shop.open &&
+                shop.active &&
                 shop.totalItems > 0
     }
 

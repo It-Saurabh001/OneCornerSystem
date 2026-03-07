@@ -112,7 +112,7 @@ class ShopItemViewModel @Inject constructor(
                 stockQuantity = stockQuantity,
                 unit = unit,
                 isAvailable = true,
-                isActive = true
+                active = true
             )
 
             shopItemRepository.createItem(product, imageUri)
@@ -185,7 +185,7 @@ class ShopItemViewModel @Inject constructor(
                 homeService = homeService,
                 requiresAppointment = requiresAppointment,
                 isAvailable = true,
-                isActive = true
+                active = true
             )
 
             Log.d("ShopItemViewModel_Service", "Uploading service to repository")

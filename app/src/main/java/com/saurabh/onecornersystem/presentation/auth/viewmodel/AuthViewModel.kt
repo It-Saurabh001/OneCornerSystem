@@ -1,5 +1,6 @@
 package com.saurabh.onecornersystem.presentation.auth.viewmodel
 
+import android.content.ContentValues.TAG
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -39,13 +40,33 @@ class AuthViewModel @Inject constructor(
 
 
     fun login(email: String, password: String) {
+        Log.d(TAG, "🔐 Login attempt - email: $email, password: [HIDDEN]")
         viewModelScope.launch {
             authRepository.loginUser(email, password)
                 .collect { result ->
-                    _loginState.value = result
-                    if (result is Resource.Success) {
-                        _currentUser.value = result.data
+                    Log.d(TAG, "📥 Login result received: ${result::class.simpleName}")
+                    when (result) {
+                        is Resource.Loading -> {
+                            Log.d(TAG, "⏳ Login in progress...")
+                        }
+                        is Resource.Success -> {
+                            Log.d(TAG, "✅ Login successful!")
+                            Log.d(TAG, "   User ID: ${result.data?.userId}")
+                            Log.d(TAG, "   User Email: ${result.data?.email}")
+                            Log.d(TAG, "   User Role: ${result.data?.role}")
+                            Log.d(TAG, "   User Active: ${result.data?.active}")
+
+                            _currentUser.value = result.data
+
+                        }
+                        is Resource.Error -> {
+                            Log.e(TAG, "Login failed: ${result.message}")
+                            Log.e(TAG, "   Error details: ${result.message}")
+                        }
+                        else -> {}
                     }
+
+                    _loginState.value = result
                 }
         }
     }
@@ -58,13 +79,33 @@ class AuthViewModel @Inject constructor(
         role: String,
         shopType: com.saurabh.onecornersystem.data.model.ShopType? = null
     ) {
+        Log.d(TAG, "📝 Register attempt - email: $email, name: $name, phone: $phone, role: $role, shopType: $shopType")
         viewModelScope.launch {
             authRepository.registerUser(email, password, name, phone, role, shopType)
                 .collect { result ->
-                    _registerState.value = result
-                    if (result is Resource.Success) {
-                        _currentUser.value = result.data
+                    Log.d(TAG, "📥 Register result received: ${result::class.simpleName}")
+                    when (result) {
+                        is Resource.Loading -> {
+                            Log.d(TAG, "⏳ Registration in progress...")
+                        }
+                        is Resource.Success -> {
+                            Log.d(TAG, "✅ Registration successful!")
+                            Log.d(TAG, "   User ID: ${result.data?.userId}")
+                            Log.d(TAG, "   User Email: ${result.data?.email}")
+                            Log.d(TAG, "   User Role: ${result.data?.role}")
+                            Log.d(TAG, "   User Active: ${result.data?.active}")
+
+                            _currentUser.value = result.data
+
+                        }
+                        is Resource.Error -> {
+                            Log.e(TAG, "❌ Registration failed: ${result.message}")
+                            Log.e(TAG, "   Error details: ${result.message}")
+                        }
+                        else -> {}
                     }
+
+                    _registerState.value = result
                 }
         }
     }
@@ -75,11 +116,14 @@ class AuthViewModel @Inject constructor(
     }
 
     fun logout() {
+        // Reset states IMMEDIATELY before any async operations
+        // This prevents stale state from triggering navigation in LoginScreen
+        _currentUser.value = null
+        _loginState.value = Resource.Idle
+        _registerState.value = Resource.Idle
+
         viewModelScope.launch {
             authRepository.logout()
-            _currentUser.value = null
-            _loginState.value = Resource.Idle
-            _registerState.value = Resource.Idle
         }
     }
 
@@ -91,7 +135,7 @@ class AuthViewModel @Inject constructor(
                 .collect { result ->
                     if (result is Resource.Success) {
                         // Update the local state
-                        val updatedUser = _currentUser.value?.copy(isActive = isActive)
+                        val updatedUser = _currentUser.value?.copy(active = isActive)
                         _currentUser.value = updatedUser
                     }
                 }
@@ -100,14 +144,24 @@ class AuthViewModel @Inject constructor(
 
     // Load current user data from Firestore
     private fun loadCurrentUser() {
+        Log.d("TAG", " Loading current user from repository")
         viewModelScope.launch {
             authRepository.getCurrentUser()
                 .collect { result ->
+                    Log.d("TAG", "📥 Load current user result: ${result::class.simpleName}")
                     when (result) {
                         is Resource.Success -> {
                             _currentUser.value = result.data
-                            Log.d("AuthViewModel", "Current user loaded: ${result.data?.email}")
-                        }
+                            if (result.data != null) {
+                                Log.d("TAG", "✅ Current user loaded successfully:")
+                                Log.d("TAG", "   User ID: ${result.data.userId}")
+                                Log.d("TAG", "   Email: ${result.data.email}")
+                                Log.d(TAG, "   Role: ${result.data.role}")
+                                Log.d(TAG, "   Active: ${result.data.active}")
+                                Log.d(TAG, "   Name: ${result.data.name}")
+                            } else {
+                                Log.d(TAG, "ℹ️ No user is currently logged in")
+                            }                        }
                         is Resource.Error -> {
                             Log.d("AuthViewModel", "Error loading current user: ${result.message}")
                         }

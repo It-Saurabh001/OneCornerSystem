@@ -1,4 +1,21 @@
 <?xml version="1.0" encoding="utf-8"?>
-<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
+<paths xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Internal app files directory -->
+    <files-path name="internal_files" path="." />
 
-</PreferenceScreen>
+    <!-- Cache directory -->
+    <cache-path name="cache" path="." />
+
+    <!-- External files directory -->
+    <external-files-path name="external_files" path="." />
+
+    <!-- External cache directory -->
+    <external-cache-path name="external_cache" path="." />
+
+    <!-- Pictures directory in external storage -->
+    <external-path name="external" path="." />
+
+    <!-- DCIM and Pictures -->
+    <external-path name="dcim" path="DCIM/" />
+    <external-path name="pictures" path="Pictures/" />
+</paths>

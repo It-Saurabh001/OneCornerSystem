@@ -120,6 +120,41 @@ class ShopItemRepositoryImpl @Inject constructor(
         }
     }
 
+    // ============= SEARCH =============
+
+    override fun searchServices(
+        query: String,
+        shopType: ShopType
+    ): Flow<Resource<List<ShopItem>>> = flow {
+        emit(Resource.Loading)
+        try {
+            Log.d("ShopItemRepo", "Searching services with query: $query, type: $shopType")
+
+            // Get all services of the specified type
+            val snapshot = itemsCollection
+                .whereEqualTo("itemType", shopType.name)
+                .whereEqualTo("isAvailable", true)
+                .get()
+                .await()
+
+            val allItems = snapshot.toObjects(ShopItem::class.java)
+
+            // Filter locally by name or description containing the query (case-insensitive)
+            val queryLower = query.lowercase().trim()
+            val filteredItems = allItems.filter { item ->
+                item.name.lowercase().contains(queryLower) ||
+                item.description.lowercase().contains(queryLower) ||
+                item.category.lowercase().contains(queryLower)
+            }
+
+            Log.d("ShopItemRepo", "Search found ${filteredItems.size} services matching '$query'")
+            emit(Resource.Success(filteredItems))
+        } catch (e: Exception) {
+            Log.e("ShopItemRepo", "Search services error", e)
+            emit(Resource.Error(e.message ?: "Failed to search services"))
+        }
+    }
+
     // ============= UPDATE =============
 
     override fun updateItem(

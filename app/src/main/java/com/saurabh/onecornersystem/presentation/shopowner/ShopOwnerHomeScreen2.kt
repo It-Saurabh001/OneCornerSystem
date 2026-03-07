@@ -1,8 +1,14 @@
 package com.saurabh.onecornersystem.presentation.shopowner
 
 
+import android.Manifest
 import android.annotation.SuppressLint
+import android.content.Context
+import android.content.pm.PackageManager
+import android.location.LocationManager
 import android.util.Log
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -41,14 +47,20 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
+import com.google.android.gms.location.LocationServices
 import com.saurabh.onecornersystem.data.model.Shop
 import com.saurabh.onecornersystem.data.model.ShopItem
 import com.saurabh.onecornersystem.data.model.ShopType
@@ -57,6 +69,7 @@ import com.saurabh.onecornersystem.presentation.shopowner.viewmodel.ShopViewMode
 import com.saurabh.onecornersystem.utils.Resource
 
 
+@SuppressLint("MissingPermission")
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ShopOwnerHomeScreen1(
@@ -66,8 +79,30 @@ fun ShopOwnerHomeScreen1(
     shopItemViewModel: ShopItemViewModel = hiltViewModel()
 ) {
     Log.d("ShopOwnerHome_Screen", "ShopOwnerHomeScreen1: Displayed with ownerId=$ownerId")
+    val context = LocalContext.current
     val myShopState by viewModel.myShopState.collectAsState()
     val servicesState by shopItemViewModel.servicesState.collectAsState()
+
+    // Location state
+    var locationUpdated by remember { mutableStateOf(false) }
+
+    // Location permission launcher
+    val locationPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        val granted = permissions[Manifest.permission.ACCESS_FINE_LOCATION] == true ||
+                     permissions[Manifest.permission.ACCESS_COARSE_LOCATION] == true
+
+        if (granted) {
+            // Fetch and update shop location
+            val shop = (myShopState as? Resource.Success)?.data
+            if (shop != null && !locationUpdated) {
+                fetchAndUpdateShopLocation(context, shop.shopId, viewModel) {
+                    locationUpdated = true
+                }
+            }
+        }
+    }
 
     // अगर ownerId empty है तो loading दिखाओ
     if (ownerId.isEmpty()) {
@@ -86,6 +121,38 @@ fun ShopOwnerHomeScreen1(
             Log.d("ShopOwnerHome_Screen", "ShopOwnerHomeScreen1: Setting up shop listener for ownerId=$ownerId")
             viewModel.getMyShop(ownerId)
             viewModel.listenToMyShop(ownerId)
+        }
+    }
+
+    // Auto-fetch location when shop is loaded and location is (0,0)
+    LaunchedEffect(myShopState) {
+        val shop = (myShopState as? Resource.Success)?.data
+        if (shop != null && !locationUpdated) {
+            // Check if shop location is default (0,0)
+            if (shop.location.latitude == 0.0 && shop.location.longitude == 0.0) {
+                Log.d("ShopOwnerHome_Screen", "Shop location is (0,0), requesting location update")
+
+                val hasFineLocation = ContextCompat.checkSelfPermission(
+                    context, Manifest.permission.ACCESS_FINE_LOCATION
+                ) == PackageManager.PERMISSION_GRANTED
+
+                val hasCoarseLocation = ContextCompat.checkSelfPermission(
+                    context, Manifest.permission.ACCESS_COARSE_LOCATION
+                ) == PackageManager.PERMISSION_GRANTED
+
+                if (hasFineLocation || hasCoarseLocation) {
+                    fetchAndUpdateShopLocation(context, shop.shopId, viewModel) {
+                        locationUpdated = true
+                    }
+                } else {
+                    locationPermissionLauncher.launch(
+                        arrayOf(
+                            Manifest.permission.ACCESS_FINE_LOCATION,
+                            Manifest.permission.ACCESS_COARSE_LOCATION
+                        )
+                    )
+                }
+            }
         }
     }
 
@@ -669,5 +736,49 @@ fun RecentOrdersSection(shopId: String, navController: NavController) {
             }
             Icon(Icons.Default.ChevronRight, contentDescription = "View")
         }
+    }
+}
+
+/**
+ * Fetch current location and update shop location in Firestore
+ */
+@SuppressLint("MissingPermission")
+private fun fetchAndUpdateShopLocation(
+    context: Context,
+    shopId: String,
+    viewModel: ShopViewModel,
+    onComplete: () -> Unit
+) {
+    try {
+        val fusedLocationClient = LocationServices.getFusedLocationProviderClient(context)
+
+        fusedLocationClient.lastLocation
+            .addOnSuccessListener { location: android.location.Location? ->
+                if (location != null) {
+                    Log.d("ShopOwnerHome_Location", "Location fetched: ${location.latitude}, ${location.longitude}")
+                    viewModel.updateShopLocation(shopId, location.latitude, location.longitude)
+                    onComplete()
+                } else {
+                    // Try LocationManager as fallback
+                    val locationManager = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
+                    val lastKnown = locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER)
+                        ?: locationManager.getLastKnownLocation(LocationManager.NETWORK_PROVIDER)
+
+                    if (lastKnown != null) {
+                        Log.d("ShopOwnerHome_Location", "LocationManager location: ${lastKnown.latitude}, ${lastKnown.longitude}")
+                        viewModel.updateShopLocation(shopId, lastKnown.latitude, lastKnown.longitude)
+                    } else {
+                        Log.d("ShopOwnerHome_Location", "Could not get location")
+                    }
+                    onComplete()
+                }
+            }
+            .addOnFailureListener { e ->
+                Log.e("ShopOwnerHome_Location", "Failed to get location", e)
+                onComplete()
+            }
+    } catch (e: Exception) {
+        Log.e("ShopOwnerHome_Location", "Exception in fetchAndUpdateShopLocation", e)
+        onComplete()
     }
 }

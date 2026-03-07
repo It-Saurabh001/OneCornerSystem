@@ -59,8 +59,10 @@ class AuthRepository @Inject constructor(
                 .await()
 
             if (role == "shop_owner" && shopType != null){
+                val shopRef = firestore.collection("shops").document()
+                val shopId = shopRef.id
                 val shop = Shop(
-                    shopId = firestore.collection("shops").document().id,
+                    shopId = shopId,
                     shopName = "",
                     ownerId = firebaseUser.uid,
                     shopType = shopType,
@@ -76,8 +78,8 @@ class AuthRepository @Inject constructor(
                     coverImage = "",
                     openingTime = "09:00",
                     closingTime = "21:00",
-                    isOpen = true,
-                    isActive = true,
+                    open = true,
+                    active = true,
                     rating = 0.0,
                     totalRatings = 0,
                     totalItems = 0,
@@ -89,9 +91,7 @@ class AuthRepository @Inject constructor(
                     hasCover = false,
                     createdAt = com.google.firebase.Timestamp.now()
                 )
-                firestore.collection("shops")
-                    .document(firebaseUser.uid)
-                    .set(shop)
+                shopRef.set(shop)
                     .await()
 
                 Log.d("AuthRepository", "✅ Shop created for owner: ${firebaseUser.uid}")

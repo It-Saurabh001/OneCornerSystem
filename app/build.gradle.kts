@@ -109,4 +109,7 @@ dependencies {
     implementation("com.google.guava:guava:33.0.0-android")
 
     implementation("com.google.accompanist:accompanist-permissions:0.37.3")
+
+    // Google Play Services Location for GPS
+    implementation("com.google.android.gms:play-services-location:21.3.0")
 }

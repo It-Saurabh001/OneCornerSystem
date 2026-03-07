@@ -165,9 +165,9 @@ fun ShopOwnerHomeScreen(
                 actions = {
                     // Shop Status Toggle
                     Switch(
-                        checked = currentUser?.isActive ?: true,
-                        onCheckedChange = { isActive ->
-                            authViewModel.updateShopOwnerActiveStatus(isActive)
+                        checked = currentUser?.active ?: true,
+                        onCheckedChange = { active ->
+                            authViewModel.updateShopOwnerActiveStatus(active)
                         },
                         modifier = Modifier.padding(end = 8.dp)
                     )
@@ -684,7 +684,7 @@ fun ProductManagementCard(
                     }
                     IconButton(onClick = onToggleAvailability) {
                         Icon(
-                            if (product.isActive) Icons.Default.Visibility
+                            if (product.active) Icons.Default.Visibility
                             else Icons.Default.VisibilityOff,
                             contentDescription = "Toggle Availability"
                         )
@@ -706,7 +706,7 @@ data class ProductItem(
     val description: String,
     val price: String,
     val stock: Int,
-    val isActive: Boolean
+    val active: Boolean
 ) {
     val inStock: Boolean = stock > 0
 }

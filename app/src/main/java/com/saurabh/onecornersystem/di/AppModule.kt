@@ -31,8 +31,9 @@ object AppModule {
     @Provides
     @Singleton
     fun provideSessionManager(
-        @ApplicationContext context: Context
-    ): SessionManager = SessionManager(context)
+        @ApplicationContext context: Context,
+        firebaseAuth: FirebaseAuth
+    ): SessionManager = SessionManager(context, firebaseAuth)
 
     @Provides
     @Singleton

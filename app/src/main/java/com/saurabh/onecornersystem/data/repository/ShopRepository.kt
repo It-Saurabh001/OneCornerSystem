@@ -1,9 +1,13 @@
 package com.saurabh.onecornersystem.data.repository
 
 import android.net.Uri
+import com.saurabh.onecornersystem.data.model.Booking
+import com.saurabh.onecornersystem.data.model.BookingStatus
 import com.saurabh.onecornersystem.data.model.CategoryWithType
+import com.saurabh.onecornersystem.data.model.PaymentStatus
 import com.saurabh.onecornersystem.data.model.Shop
 import com.saurabh.onecornersystem.data.model.ShopType
+import com.saurabh.onecornersystem.data.model.TimeSlot
 import com.saurabh.onecornersystem.utils.Resource
 import kotlinx.coroutines.flow.Flow
 
@@ -75,7 +79,32 @@ interface ShopRepository {
 
     fun getFavoriteShopsByType(shopType: ShopType): Flow<Resource<List<Shop>>>
 
+    // ============= BOOKING FUNCTIONS =============
 
+    // Create new booking
+    // Create/Read
+    fun createBooking(booking: Booking): Flow<Resource<Booking>>
+    fun getBookingById(bookingId: String): Flow<Resource<Booking>>
+    fun getBookingsByShop(shopId: String): Flow<Resource<List<Booking>>>
+    fun getBookingsByCustomer(customerId: String): Flow<Resource<List<Booking>>>
+    fun getBookingsByShopAndStatus(shopId: String, status: BookingStatus): Flow<Resource<List<Booking>>>
+
+    // Update
+
+
+    fun updateBookingStatus(bookingId: String, status: BookingStatus): Flow<Resource<Boolean>>
+    fun updateBookingPaymentStatus(bookingId: String, paymentStatus: PaymentStatus): Flow<Resource<Boolean>>
+    fun updateBookingNotes(bookingId: String, shopResponseNotes: String): Flow<Resource<Boolean>>
+
+    // Cancel
+    fun cancelBooking(bookingId: String, reason: String, cancelledBy: String): Flow<Resource<Boolean>>
+    // Get available time slots for a date
+    fun getAvailableTimeSlots(shopId: String, date: String): Flow<Resource<List<TimeSlot>>>
+
+    // Listen to bookings in real-time (for shop owner)
+    fun listenToShopBookings(shopId: String): Flow<Resource<List<Booking>>>
+
+    // Listen to customer bookings in real-time
+    fun listenToCustomerBookings(customerId: String): Flow<Resource<List<Booking>>>
 
 }
-
