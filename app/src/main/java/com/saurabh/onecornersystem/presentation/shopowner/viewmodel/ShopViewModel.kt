@@ -1,9 +1,12 @@
 package com.saurabh.onecornersystem.presentation.shopowner.viewmodel
 
+import android.content.ContentValues.TAG
 import android.net.Uri
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.saurabh.onecornersystem.data.model.Booking
+import com.saurabh.onecornersystem.data.model.BookingStatus
 import com.saurabh.onecornersystem.data.model.OperatingHour
 import com.saurabh.onecornersystem.data.model.Shop
 import com.saurabh.onecornersystem.data.repository.ShopRepository
@@ -74,6 +77,154 @@ class ShopViewModel @Inject constructor(
     // Logo Remove
     private val _logoRemoveState = MutableStateFlow<Resource<Boolean>>(Resource.Idle)
     val logoRemoveState: StateFlow<Resource<Boolean>> = _logoRemoveState.asStateFlow()
+
+
+    // ============= BOOKING MANAGEMENT =============
+
+    private val _shopBookingsState = MutableStateFlow<Resource<List<Booking>>>(Resource.Idle)
+    val shopBookingsState: StateFlow<Resource<List<Booking>>> = _shopBookingsState.asStateFlow()
+
+    private val _pendingBookingsCount = MutableStateFlow(0)
+    val pendingBookingsCount: StateFlow<Int> = _pendingBookingsCount.asStateFlow()
+
+    private val _updateBookingStatusState = MutableStateFlow<Resource<Boolean>>(Resource.Idle)
+    val updateBookingStatusState: StateFlow<Resource<Boolean>> = _updateBookingStatusState.asStateFlow()
+
+    private val _shopBookingDetailsState = MutableStateFlow<Resource<Booking>>(Resource.Idle)
+    val shopBookingDetailsState: StateFlow<Resource<Booking>> = _shopBookingDetailsState.asStateFlow()
+
+
+    fun listenToShopBookings(shopId: String) {
+        Log.d(TAG, "========== listenToShopBookings ==========")
+        Log.d(TAG, "🏪 Setting up bookings listener for shopId: $shopId")
+
+        if (shopId.isBlank()) {
+            Log.e(TAG, "❌ shopId is blank")
+            return
+        }
+
+        viewModelScope.launch {
+            shopRepository.listenToShopBookings(shopId).collect { result ->
+                when (result) {
+                    is Resource.Success -> {
+                        val bookings = result.data
+                        Log.d(TAG, "📦 Received ${bookings.size} bookings")
+
+                        // Pending bookings count update karo
+                        val pendingCount = bookings.count { it.status == BookingStatus.PENDING }
+                        _pendingBookingsCount.value = pendingCount
+
+                        Log.d(TAG, "⏳ Pending bookings: $pendingCount")
+                        _shopBookingsState.value = result
+                    }
+                    is Resource.Error -> {
+                        Log.e(TAG, "❌ Error: ${result.message}")
+                        _shopBookingsState.value = result
+                    }
+                    is Resource.Loading -> {
+                        Log.d(TAG, "⏳ Loading bookings...")
+                        _shopBookingsState.value = result
+                    }
+                    else -> {}
+                }
+            }
+        }
+    }
+
+    /**
+     * Shop ki specific booking details fetch karo
+     */
+    fun getShopBookingDetails(bookingId: String) {
+        Log.d(TAG, "getShopBookingDetails - bookingId: $bookingId")
+
+        if (bookingId.isBlank()) {
+            _shopBookingDetailsState.value = Resource.Error("Booking ID cannot be empty")
+            return
+        }
+
+        viewModelScope.launch {
+            _shopBookingDetailsState.value = Resource.Loading
+            shopRepository.getBookingById(bookingId).collect { result ->
+                when (result) {
+                    is Resource.Success -> Log.d(TAG, "✅ Booking details loaded")
+                    is Resource.Error -> Log.e(TAG, "❌ Error: ${result.message}")
+                    else -> {}
+                }
+                _shopBookingDetailsState.value = result
+            }
+        }
+    }
+
+    /**
+     * Booking status update karo (Accept/Reject/Complete/Cancel)
+     */
+    fun updateBookingStatus(
+        bookingId: String,
+        status: BookingStatus,
+        shopId: String? = null,  // Refresh ke liye
+        reason: String = ""       // Reject/Cancel ke liye reason
+    ) {
+        Log.d(TAG, "updateBookingStatus - bookingId: $bookingId, newStatus: $status, reason: $reason")
+
+        if (bookingId.isBlank()) {
+            _updateBookingStatusState.value = Resource.Error("Booking ID cannot be empty")
+            return
+        }
+
+        viewModelScope.launch {
+            _updateBookingStatusState.value = Resource.Loading
+
+            // Agar reject ya cancel hai to reason ke saath update karo
+            if (status == BookingStatus.REJECTED || status == BookingStatus.CANCELLED) {
+                shopRepository.cancelBooking(bookingId, reason, "shop_owner")
+                    .collect { result ->
+                        handleBookingStatusResult(result, shopId)
+                    }
+            } else {
+                shopRepository.updateBookingStatus(bookingId, status)
+                    .collect { result ->
+                        handleBookingStatusResult(result, shopId)
+                    }
+            }
+        }
+    }
+
+    private fun handleBookingStatusResult(result: Resource<Boolean>, shopId: String?) {
+        when (result) {
+            is Resource.Success -> {
+                Log.d(TAG, "✅ Booking status updated successfully")
+                _updateBookingStatusState.value = result
+
+                // Agar shopId diya hai toh listener refresh karo
+                if (shopId != null) {
+                    listenToShopBookings(shopId)
+                }
+            }
+            is Resource.Error -> {
+                Log.e(TAG, "❌ Error updating booking status: ${result.message}")
+                _updateBookingStatusState.value = result
+            }
+            is Resource.Loading -> {
+                Log.d(TAG, "⏳ Updating booking status...")
+                _updateBookingStatusState.value = result
+            }
+            else -> {}
+        }
+    }
+
+    /**
+     * Filter bookings by status (for tabs)
+     */
+    fun getFilteredShopBookings(bookings: List<Booking>, status: BookingStatus?): List<Booking> {
+        return if (status == null) {
+            bookings
+        } else {
+            bookings.filter { it.status == status }
+        }
+    }
+
+
+
 
     // Combined Loading State for UI
     val isLoading: StateFlow<Boolean> = combine(
@@ -819,18 +970,22 @@ class ShopViewModel @Inject constructor(
 
     fun resetAllStates() {
         Log.d("ShopViewModel_Reset", "resetAllStates called - resetting all state flows")
-        _shopDetailsState.value = Resource.Loading
-        _myShopState.value = Resource.Loading
-        _updateShopState.value = Resource.Loading
-        _createShopState.value = Resource.Loading
-        _deactivateShopState.value = Resource.Loading
-        _toggleStatusState.value = Resource.Loading
-        _updateStatsState.value = Resource.Loading
-        _shopRatingState.value = Resource.Loading
-        _coverUploadState.value = Resource.Loading
-        _logoUploadState.value = Resource.Loading
-        _logoRemoveState.value = Resource.Loading
-        _coverRemoveState.value = Resource.Loading
+        _shopDetailsState.value = Resource.Idle
+        _myShopState.value = Resource.Idle
+        _updateShopState.value = Resource.Idle
+        _createShopState.value = Resource.Idle
+        _deactivateShopState.value = Resource.Idle
+        _toggleStatusState.value = Resource.Idle
+        _updateStatsState.value = Resource.Idle
+        _shopRatingState.value = Resource.Idle
+        _coverUploadState.value = Resource.Idle
+        _logoUploadState.value = Resource.Idle
+        _logoRemoveState.value = Resource.Idle
+        _coverRemoveState.value = Resource.Idle
+        _shopBookingsState.value = Resource.Idle
+        _updateBookingStatusState.value = Resource.Idle
+        _shopBookingDetailsState.value = Resource.Idle
+        _pendingBookingsCount.value = 0
     }
 
     // ============= REFRESH FUNCTIONS =============

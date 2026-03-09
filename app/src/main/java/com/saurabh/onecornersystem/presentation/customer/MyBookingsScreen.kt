@@ -1,5 +1,6 @@
 package com.saurabh.onecornersystem.presentation.customer
 
+import android.util.Log
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -10,6 +11,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -27,6 +29,8 @@ import com.saurabh.onecornersystem.utils.Resource
 import java.text.SimpleDateFormat
 import java.util.*
 
+private const val TAG = "MyBookingsScreen"
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MyBookingsScreen(
@@ -35,15 +39,134 @@ fun MyBookingsScreen(
     authViewModel: AuthViewModel = hiltViewModel()
 ) {
     val myBookingsState by viewModel.myBookingsState.collectAsStateWithLifecycle()
-    val currentUser by authViewModel.currentUser.collectAsStateWithLifecycle() // You'll need to add this
+    val currentUser by authViewModel.currentUser.collectAsStateWithLifecycle()
+    val cancelBookingState by viewModel.cancelBookingState.collectAsStateWithLifecycle()
+
+    val snackbarHostState = remember { SnackbarHostState() }
 
     var selectedTab by remember { mutableStateOf(0) }
+    var showCancelDialog by remember { mutableStateOf(false) }
+    var selectedBooking by remember { mutableStateOf<Booking?>(null) }
+    var cancelReason by remember { mutableStateOf("") }
+    var isRefreshing by remember { mutableStateOf(false) }
+
     val tabs = listOf("All", "Pending", "Confirmed", "Completed")
 
-    LaunchedEffect(Unit) {
+    // ============= FETCH BOOKINGS WHEN USER CHANGES =============
+    LaunchedEffect(currentUser) {
         currentUser?.userId?.let { userId ->
+            Log.d(TAG, "📞 Fetching bookings for user: $userId")
+            isRefreshing = true
             viewModel.getMyBookings(userId)
+        } ?: run {
+            Log.d(TAG, "⏳ Waiting for user to load...")
         }
+    }
+
+    // ============= HANDLE BOOKING STATE CHANGES =============
+    LaunchedEffect(myBookingsState) {
+        when (myBookingsState) {
+            is Resource.Loading -> {
+                isRefreshing = true
+                Log.d(TAG, "⏳ Loading bookings...")
+            }
+            is Resource.Success -> {
+                isRefreshing = false
+                val count = (myBookingsState as Resource.Success).data.size
+                Log.d(TAG, "✅ Loaded $count bookings")
+            }
+            is Resource.Error -> {
+                isRefreshing = false
+                val error = (myBookingsState as Resource.Error).message
+                Log.e(TAG, "❌ Error loading bookings: $error")
+            }
+            else -> {}
+        }
+    }
+
+    // ============= HANDLE CANCELLATION STATE =============
+    LaunchedEffect(cancelBookingState) {
+        when (val state = cancelBookingState) {
+            is Resource.Success -> {
+                Log.d(TAG, "✅ Booking cancelled successfully")
+                snackbarHostState.showSnackbar(
+                    message = "Booking cancelled successfully",
+                    duration = SnackbarDuration.Short
+                )
+                // Refresh bookings
+                currentUser?.userId?.let { userId ->
+                    viewModel.getMyBookings(userId)
+                }
+            }
+            is Resource.Error -> {
+                Log.e(TAG, "❌ Cancel failed: ${state.message}")
+                snackbarHostState.showSnackbar(
+                    message = state.message ?: "Failed to cancel booking",
+                    actionLabel = "Retry",
+                    duration = SnackbarDuration.Long
+                )
+            }
+            is Resource.Loading -> {
+                Log.d(TAG, "⏳ Cancelling booking...")
+            }
+            else -> {}
+        }
+    }
+
+    // ============= CANCEL DIALOG =============
+    if (showCancelDialog && selectedBooking != null) {
+        AlertDialog(
+            onDismissRequest = {
+                showCancelDialog = false
+                cancelReason = ""
+                selectedBooking = null
+            },
+            title = { Text("Cancel Booking") },
+            text = {
+                Column {
+                    Text("Are you sure you want to cancel this booking?")
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = cancelReason,
+                        onValueChange = { cancelReason = it },
+                        label = { Text("Reason (optional)") },
+                        modifier = Modifier.fillMaxWidth(),
+                        minLines = 2
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        selectedBooking?.let { booking ->
+                            Log.d(TAG, "Cancelling booking: ${booking.bookingId}")
+                            viewModel.cancelBooking(
+                                bookingId = booking.bookingId,
+                                reason = cancelReason,
+                                customerId = currentUser?.userId ?: ""
+                            )
+                        }
+                        showCancelDialog = false
+                        cancelReason = ""
+                        selectedBooking = null
+                    },
+                    colors = ButtonDefaults.textButtonColors(
+                        contentColor = MaterialTheme.colorScheme.error
+                    )
+                ) {
+                    Text("Confirm Cancel")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    showCancelDialog = false
+                    cancelReason = ""
+                    selectedBooking = null
+                }) {
+                    Text("Back")
+                }
+            }
+        )
     }
 
     Scaffold(
@@ -54,9 +177,30 @@ fun MyBookingsScreen(
                     IconButton(onClick = { navController.popBackStack() }) {
                         Icon(Icons.Default.ArrowBack, contentDescription = "Back")
                     }
+                },
+                actions = {
+                    // Refresh button
+                    IconButton(
+                        onClick = {
+                            currentUser?.userId?.let { userId ->
+                                isRefreshing = true
+                                viewModel.getMyBookings(userId)
+                            }
+                        }
+                    ) {
+                        if (isRefreshing) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(20.dp),
+                                strokeWidth = 2.dp
+                            )
+                        } else {
+                            Icon(Icons.Default.Refresh, contentDescription = "Refresh")
+                        }
+                    }
                 }
             )
-        }
+        },
+        snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { paddingValues ->
         Column(
             modifier = Modifier
@@ -91,14 +235,27 @@ fun MyBookingsScreen(
                         modifier = Modifier.fillMaxSize(),
                         contentAlignment = Alignment.Center
                     ) {
-                        CircularProgressIndicator()
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            CircularProgressIndicator()
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = "Loading your bookings...",
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                     }
                 }
+
                 is Resource.Success -> {
                     val filteredBookings = filterBookingsByTab(state.data, selectedTab)
 
                     if (filteredBookings.isEmpty()) {
-                        EmptyBookingsPlaceholder()
+                        EmptyBookingsPlaceholder(
+                            tabName = tabs[selectedTab],
+                            onBrowseClick = {
+                                navController.popBackStack()
+                            }
+                        )
                     } else {
                         LazyColumn(
                             modifier = Modifier
@@ -109,6 +266,10 @@ fun MyBookingsScreen(
                             items(filteredBookings) { booking ->
                                 BookingCard(
                                     booking = booking,
+                                    onCancelClick = {
+                                        selectedBooking = booking
+                                        showCancelDialog = true
+                                    },
                                     onClick = {
                                         navController.navigate("booking_details/${booking.bookingId}")
                                     }
@@ -117,28 +278,58 @@ fun MyBookingsScreen(
                         }
                     }
                 }
+
                 is Resource.Error -> {
                     Box(
                         modifier = Modifier.fillMaxSize(),
                         contentAlignment = Alignment.Center
                     ) {
                         Column(
-                            horizontalAlignment = Alignment.CenterHorizontally
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            modifier = Modifier.padding(24.dp)
                         ) {
+                            Icon(
+                                Icons.Default.ErrorOutline,
+                                contentDescription = null,
+                                modifier = Modifier.size(64.dp),
+                                tint = MaterialTheme.colorScheme.error
+                            )
+
+                            Spacer(modifier = Modifier.height(16.dp))
+
                             Text(
-                                text = state.message ?: "Failed to load bookings",
-                                color = MaterialTheme.colorScheme.error,
+                                text = "Failed to load bookings",
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.error
+                            )
+
+                            Spacer(modifier = Modifier.height(8.dp))
+
+                            Text(
+                                text = if (state.message?.contains("index") == true)
+                                    "Database is being set up. Please wait a moment and try again."
+                                else state.message ?: "Something went wrong",
+                                fontSize = 14.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 textAlign = TextAlign.Center
                             )
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Button(onClick = {
-                                currentUser?.userId?.let { viewModel.getMyBookings(it) }
-                            }) {
-                                Text("Retry")
+
+                            Spacer(modifier = Modifier.height(16.dp))
+
+                            Button(
+                                onClick = {
+                                    currentUser?.userId?.let { userId ->
+                                        viewModel.getMyBookings(userId)
+                                    }
+                                }
+                            ) {
+                                Text("Try Again")
                             }
                         }
                     }
                 }
+
                 else -> {}
             }
         }
@@ -148,6 +339,7 @@ fun MyBookingsScreen(
 @Composable
 fun BookingCard(
     booking: Booking,
+    onCancelClick: () -> Unit,
     onClick: () -> Unit
 ) {
     Card(
@@ -155,7 +347,16 @@ fun BookingCard(
             .fillMaxWidth()
             .padding(vertical = 4.dp),
         onClick = onClick,
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = when (booking.status) {
+                BookingStatus.PENDING -> Color(0xFFFFF3E0)
+                BookingStatus.CONFIRMED -> Color(0xFFE3F2FD)
+                BookingStatus.COMPLETED -> Color(0xFFE8F5E8)
+                BookingStatus.CANCELLED, BookingStatus.REJECTED -> Color(0xFFFFEBEE)
+                else -> MaterialTheme.colorScheme.surface
+            }
+        )
     ) {
         Column(
             modifier = Modifier
@@ -237,7 +438,7 @@ fun BookingCard(
             }
 
             // Location (if home service)
-            if (booking.serviceLocation == ServiceLocation.CUSTOMER_HOME) {
+            if (booking.serviceLocation == ServiceLocation.CUSTOMER_HOME && booking.serviceAddress.isNotBlank()) {
                 Spacer(modifier = Modifier.height(4.dp))
                 Row(
                     verticalAlignment = Alignment.CenterVertically
@@ -258,6 +459,29 @@ fun BookingCard(
                 }
             }
 
+            // Cancellation Reason
+            if ((booking.status == BookingStatus.CANCELLED || booking.status == BookingStatus.REJECTED)
+                && booking.cancellationReason.isNotBlank()) {
+                Spacer(modifier = Modifier.height(4.dp))
+                Row(
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        Icons.Default.Warning,
+                        contentDescription = null,
+                        modifier = Modifier.size(14.dp),
+                        tint = Color(0xFFE53935)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = booking.cancellationReason,
+                        fontSize = 11.sp,
+                        color = Color(0xFFE53935),
+                        maxLines = 1
+                    )
+                }
+            }
+
             Spacer(modifier = Modifier.height(8.dp))
 
             // Action Buttons based on status
@@ -268,7 +492,7 @@ fun BookingCard(
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         OutlinedButton(
-                            onClick = { /* Cancel booking */ },
+                            onClick = onCancelClick,
                             modifier = Modifier.weight(1f),
                             colors = ButtonDefaults.outlinedButtonColors(
                                 contentColor = MaterialTheme.colorScheme.error
@@ -314,37 +538,37 @@ fun BookingCard(
 fun BookingStatusChip(status: BookingStatus) {
     val (backgroundColor, textColor, text) = when (status) {
         BookingStatus.PENDING -> Triple(
-            Color(0xFFFFC107).copy(alpha = 0.1f),
+            Color(0xFFFFC107).copy(alpha = 0.2f),
             Color(0xFFFFC107),
             "PENDING"
         )
         BookingStatus.CONFIRMED -> Triple(
-            Color(0xFF2196F3).copy(alpha = 0.1f),
+            Color(0xFF2196F3).copy(alpha = 0.2f),
             Color(0xFF2196F3),
             "CONFIRMED"
         )
         BookingStatus.IN_PROGRESS -> Triple(
-            Color(0xFF9C27B0).copy(alpha = 0.1f),
+            Color(0xFF9C27B0).copy(alpha = 0.2f),
             Color(0xFF9C27B0),
             "IN PROGRESS"
         )
         BookingStatus.COMPLETED -> Triple(
-            Color(0xFF4CAF50).copy(alpha = 0.1f),
+            Color(0xFF4CAF50).copy(alpha = 0.2f),
             Color(0xFF4CAF50),
             "COMPLETED"
         )
         BookingStatus.CANCELLED -> Triple(
-            Color(0xFFE53935).copy(alpha = 0.1f),
+            Color(0xFFE53935).copy(alpha = 0.2f),
             Color(0xFFE53935),
             "CANCELLED"
         )
         BookingStatus.REJECTED -> Triple(
-            Color(0xFFE53935).copy(alpha = 0.1f),
+            Color(0xFFE53935).copy(alpha = 0.2f),
             Color(0xFFE53935),
             "REJECTED"
         )
         BookingStatus.NO_SHOW -> Triple(
-            Color(0xFF757575).copy(alpha = 0.1f),
+            Color(0xFF757575).copy(alpha = 0.2f),
             Color(0xFF757575),
             "NO SHOW"
         )
@@ -365,7 +589,10 @@ fun BookingStatusChip(status: BookingStatus) {
 }
 
 @Composable
-fun EmptyBookingsPlaceholder() {
+fun EmptyBookingsPlaceholder(
+    tabName: String,
+    onBrowseClick: () -> Unit
+) {
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -383,7 +610,7 @@ fun EmptyBookingsPlaceholder() {
         Spacer(modifier = Modifier.height(16.dp))
 
         Text(
-            text = "No Bookings Yet",
+            text = if (tabName == "All") "No Bookings Yet" else "No $tabName Bookings",
             fontSize = 20.sp,
             fontWeight = FontWeight.Bold
         )
@@ -391,17 +618,31 @@ fun EmptyBookingsPlaceholder() {
         Spacer(modifier = Modifier.height(8.dp))
 
         Text(
-            text = "Book a service to see it here",
+            text = when (tabName) {
+                "All" -> "Book a service to see it here"
+                "Pending" -> "You don't have any pending bookings"
+                "Confirmed" -> "No confirmed bookings yet"
+                "Completed" -> "No completed bookings yet"
+                else -> "Book a service to see it here"
+            },
             fontSize = 14.sp,
             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
             textAlign = TextAlign.Center
         )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Button(
+            onClick = onBrowseClick
+        ) {
+            Text("Browse Services")
+        }
     }
 }
 
 private fun filterBookingsByTab(bookings: List<Booking>, tabIndex: Int): List<Booking> {
     return when (tabIndex) {
-        0 -> bookings // All
+        0 -> bookings
         1 -> bookings.filter { it.status == BookingStatus.PENDING }
         2 -> bookings.filter { it.status == BookingStatus.CONFIRMED }
         3 -> bookings.filter { it.status == BookingStatus.COMPLETED }

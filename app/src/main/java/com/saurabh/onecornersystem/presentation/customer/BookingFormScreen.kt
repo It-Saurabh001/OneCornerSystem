@@ -8,6 +8,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -24,6 +25,7 @@ import androidx.navigation.NavController
 import com.saurabh.onecornersystem.data.model.ServiceLocation
 import com.saurabh.onecornersystem.data.model.ShopItem
 import com.saurabh.onecornersystem.data.model.TimeSlot
+import com.saurabh.onecornersystem.presentation.auth.viewmodel.AuthViewModel
 import com.saurabh.onecornersystem.presentation.customer.viewmodel.CustomerShopViewModel
 import com.saurabh.onecornersystem.presentation.shopowner.viewmodel.ShopItemViewModel
 import com.saurabh.onecornersystem.utils.Resource
@@ -38,13 +40,16 @@ fun BookingFormScreen(
     serviceId: String,
     navController: NavController,
     shopItemViewModel: ShopItemViewModel = hiltViewModel(),
-    customerViewModel: CustomerShopViewModel = hiltViewModel()
+    customerViewModel: CustomerShopViewModel = hiltViewModel(),
+    authViewModel: AuthViewModel = hiltViewModel()
 ) {
     Log.d(TAG, "Displayed - serviceId: $serviceId")
 
     val itemState by shopItemViewModel.itemState.collectAsState()
     val timeSlotsState by customerViewModel.availableTimeSlotsState.collectAsState()
     val createBookingState by customerViewModel.createBookingState.collectAsState()
+    val currentUser by authViewModel.currentUser.collectAsState()
+    val shopDetailsState by customerViewModel.shopDetailsState.collectAsState()
 
     var selectedDate by remember { mutableStateOf("") }
     var selectedTime by remember { mutableStateOf("") }
@@ -65,6 +70,20 @@ fun BookingFormScreen(
         shopItemViewModel.getItemById(serviceId)
     }
 
+    // Fetch shop details when service is loaded
+    LaunchedEffect(itemState) {
+        when (itemState) {
+            is Resource.Success -> {
+                val service = (itemState as Resource.Success).data
+                Log.d(TAG, "Service loaded: ${service.name}, fetching shop details for shopId: ${service.shopId}")
+                customerViewModel.getShopDetails(service.shopId)
+            }
+            is Resource.Error -> Log.e(TAG, "Service load error: ${(itemState as Resource.Error).message}")
+            is Resource.Loading -> Log.d(TAG, "Loading service...")
+            else -> {}
+        }
+    }
+
     LaunchedEffect(selectedDate) {
         if (selectedDate.isNotEmpty()) {
             val service = (itemState as? Resource.Success)?.data
@@ -75,15 +94,6 @@ fun BookingFormScreen(
         }
     }
 
-    // Log state changes
-    LaunchedEffect(itemState) {
-        when (itemState) {
-            is Resource.Success -> Log.d(TAG, "Service loaded: ${(itemState as Resource.Success).data.name}")
-            is Resource.Error -> Log.e(TAG, "Service load error: ${(itemState as Resource.Error).message}")
-            is Resource.Loading -> Log.d(TAG, "Loading service...")
-            else -> {}
-        }
-    }
 
     LaunchedEffect(createBookingState) {
         when (createBookingState) {
@@ -104,7 +114,7 @@ fun BookingFormScreen(
                 title = { Text("Book Service") },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 }
             )
@@ -415,21 +425,66 @@ fun BookingFormScreen(
                     Spacer(modifier = Modifier.height(24.dp))
 
                     // Confirm Button
+                    val isBookingInProgress = createBookingState is Resource.Loading
+                    val shop = (shopDetailsState as? Resource.Success)?.data
+
                     Button(
                         onClick = {
-                            // Create booking
+                            val user = currentUser
+                            if (user != null && shop != null) {
+                                Log.d(TAG, "Creating booking - User: ${user.userId}, Shop: ${shop.shopId}")
+                                customerViewModel.createBooking(
+                                    customerId = user.userId,
+                                    customerName = user.name,
+                                    customerPhone = user.phone,
+                                    customerEmail = user.email,
+                                    shopId = service.shopId,
+                                    shopName = shop.shopName,
+                                    shopOwnerId = shop.ownerId,
+                                    serviceId = service.itemId,
+                                    serviceName = service.name,
+                                    servicePrice = service.price,
+                                    serviceDuration = service.duration,
+                                    bookingDate = selectedDate,
+                                    bookingTime = selectedTime,
+                                    serviceLocation = selectedLocation,
+                                    serviceAddress = if (selectedLocation == ServiceLocation.CUSTOMER_HOME) address else "",
+                                    customerCity = if (selectedLocation == ServiceLocation.CUSTOMER_HOME) city else "",
+                                    customerPincode = if (selectedLocation == ServiceLocation.CUSTOMER_HOME) pincode else "",
+                                    notes = notes
+                                )
+                            } else {
+                                Log.e(TAG, "Cannot create booking - User: $user, Shop: $shop")
+                            }
                         },
                         modifier = Modifier.fillMaxWidth(),
-                        enabled = selectedDate.isNotEmpty() &&
+                        enabled = !isBookingInProgress &&
+                                selectedDate.isNotEmpty() &&
                                 selectedTime.isNotEmpty() &&
+                                currentUser != null &&
+                                shop != null &&
                                 (selectedLocation != ServiceLocation.CUSTOMER_HOME ||
                                         (address.isNotBlank() && city.isNotBlank() && pincode.isNotBlank()))
                     ) {
-                        Text(
-                            text = "Confirm Booking",
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Medium
-                        )
+                        if (isBookingInProgress) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(20.dp),
+                                color = MaterialTheme.colorScheme.onPrimary,
+                                strokeWidth = 2.dp
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "Creating Booking...",
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                        } else {
+                            Text(
+                                text = "Confirm Booking",
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
                     }
 
                     Spacer(modifier = Modifier.height(16.dp))

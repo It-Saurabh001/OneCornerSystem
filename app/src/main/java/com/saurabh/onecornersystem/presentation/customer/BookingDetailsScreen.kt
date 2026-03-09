@@ -1,5 +1,6 @@
 package com.saurabh.onecornersystem.presentation.customer
 
+import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -12,6 +13,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -26,6 +28,8 @@ import com.saurabh.onecornersystem.utils.Resource
 import java.text.SimpleDateFormat
 import java.util.*
 
+private const val TAG = "BookingDetailsScreen"
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BookingDetailsScreen(
@@ -35,12 +39,48 @@ fun BookingDetailsScreen(
     authViewModel: AuthViewModel = hiltViewModel()
 ) {
     val bookingDetailsState by viewModel.bookingDetailsState.collectAsStateWithLifecycle()
+    val cancelBookingState by viewModel.cancelBookingState.collectAsStateWithLifecycle()
     val currentUser by authViewModel.currentUser.collectAsStateWithLifecycle()
 
-    var showCancelDialog by remember { mutableStateOf(false) }
+    val snackbarHostState = remember { SnackbarHostState() }
 
+    var showCancelDialog by remember { mutableStateOf(false) }
+    var cancelReason by remember { mutableStateOf("") }
+    var isLoading by remember { mutableStateOf(false) }
+
+    // Fetch booking details
     LaunchedEffect(bookingId) {
+        Log.d(TAG, "📞 Fetching booking details for ID: $bookingId")
         viewModel.getBookingDetails(bookingId)
+    }
+
+    // Handle cancellation state
+    LaunchedEffect(cancelBookingState) {
+        when (val state = cancelBookingState) {
+            is Resource.Success -> {
+                isLoading = false
+                Log.d(TAG, "✅ Booking cancelled successfully")
+                snackbarHostState.showSnackbar(
+                    message = "Booking cancelled successfully",
+                    duration = SnackbarDuration.Short
+                )
+                navController.popBackStack()
+            }
+            is Resource.Error -> {
+                isLoading = false
+                val errorMsg = state.message ?: "Failed to cancel booking"
+                Log.e(TAG, "❌ Cancel failed: $errorMsg")
+                snackbarHostState.showSnackbar(
+                    message = errorMsg,
+                    duration = SnackbarDuration.Long
+                )
+            }
+            is Resource.Loading -> {
+                isLoading = true
+                Log.d(TAG, "⏳ Cancelling booking...")
+            }
+            else -> {}
+        }
     }
 
     Scaffold(
@@ -53,249 +93,456 @@ fun BookingDetailsScreen(
                     }
                 },
                 actions = {
-                    // Share booking
                     IconButton(onClick = { /* Share booking */ }) {
                         Icon(Icons.Default.Share, contentDescription = "Share")
                     }
                 }
             )
-        }
+        },
+        snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { paddingValues ->
-        when (val state = bookingDetailsState) {
-            is Resource.Loading -> {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(paddingValues),
-                    contentAlignment = Alignment.Center
-                ) {
-                    CircularProgressIndicator()
+        Box(modifier = Modifier.fillMaxSize()) {
+
+            when (val state = bookingDetailsState) {
+                is Resource.Loading -> {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(paddingValues),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            CircularProgressIndicator()
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = "Loading booking details...",
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
                 }
-            }
-            is Resource.Success -> {
-                val booking = state.data
 
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(paddingValues)
-                        .verticalScroll(rememberScrollState())
-                ) {
-                    // Status Banner
-                    StatusBanner(status = booking.status)
+                is Resource.Success -> {
+                    val booking = state.data
 
-                    // Content
+                    Log.d(TAG, "✅ Booking loaded: ${booking.bookingId}")
+                    Log.d(TAG, "   Location type: ${booking.serviceLocation}")
+                    Log.d(TAG, "   Shop address: ${booking.shopAddress}")
+                    Log.d(TAG, "   Service address: ${booking.serviceAddress}")
+
                     Column(
                         modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp)
+                            .fillMaxSize()
+                            .padding(paddingValues)
+                            .verticalScroll(rememberScrollState())
                     ) {
-                        // Shop and Service Info
-                        Card(
-                            modifier = Modifier.fillMaxWidth()
+                        // Status Banner
+                        StatusBanner(status = booking.status)
+
+                        // Content
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp)
                         ) {
-                            Column(
-                                modifier = Modifier.padding(16.dp)
-                            ) {
-                                Text(
-                                    text = booking.shopName,
-                                    fontSize = 20.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-
-                                Spacer(modifier = Modifier.height(4.dp))
-
-                                Text(
-                                    text = booking.serviceName,
-                                    fontSize = 16.sp,
-                                    color = MaterialTheme.colorScheme.primary
-                                )
-
-                                Spacer(modifier = Modifier.height(8.dp))
-
-                                // Price
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween
-                                ) {
-                                    Text(
-                                        text = "Price",
-                                        fontSize = 14.sp,
-                                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                                    )
-                                    Text(
-                                        text = "₹${booking.servicePrice}",
-                                        fontSize = 18.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = MaterialTheme.colorScheme.primary
-                                    )
-                                }
-                            }
-                        }
-
-                        Spacer(modifier = Modifier.height(16.dp))
-
-                        // Date & Time
-                        InfoCard(
-                            icon = Icons.Default.CalendarToday,
-                            title = "Date & Time",
-                            content = "${formatFullDate(booking.bookingDate)} at ${formatTime(booking.bookingTime)}"
-                        )
-
-                        Spacer(modifier = Modifier.height(12.dp))
-
-                        // Location
-                        InfoCard(
-                            icon = Icons.Default.LocationOn,
-                            title = if (booking.serviceLocation == ServiceLocation.CUSTOMER_HOME)
-                                "Home Service Address"
-                            else
-                                "Shop Location",
-                            content = if (booking.serviceLocation == ServiceLocation.CUSTOMER_HOME) {
-                                "${booking.serviceAddress}\n${booking.customerCity} - ${booking.customerPincode}"
-                            } else {
-                                booking.shopAddress
-                            }
-                        )
-
-                        Spacer(modifier = Modifier.height(12.dp))
-
-                        // Notes (if any)
-                        if (booking.notes.isNotBlank()) {
-                            InfoCard(
-                                icon = Icons.Default.Notes,
-                                title = "Additional Notes",
-                                content = booking.notes
+                            // Booking ID
+                            Text(
+                                text = "Booking #${booking.bookingId.takeLast(8)}",
+                                fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                                modifier = Modifier.padding(bottom = 8.dp)
                             )
 
-                            Spacer(modifier = Modifier.height(12.dp))
-                        }
-
-                        // Cancellation Info (if cancelled)
-                        if (booking.status == BookingStatus.CANCELLED && booking.cancellationReason.isNotBlank()) {
+                            // Shop and Service Info
                             Card(
                                 modifier = Modifier.fillMaxWidth(),
                                 colors = CardDefaults.cardColors(
-                                    containerColor = Color(0xFFE53935).copy(alpha = 0.1f)
+                                    containerColor = MaterialTheme.colorScheme.primaryContainer
                                 )
                             ) {
-                                Row(
-                                    modifier = Modifier.padding(16.dp),
-                                    verticalAlignment = Alignment.CenterVertically
+                                Column(
+                                    modifier = Modifier.padding(16.dp)
                                 ) {
-                                    Icon(
-                                        Icons.Default.Warning,
-                                        contentDescription = null,
-                                        tint = Color(0xFFE53935)
+                                    Text(
+                                        text = booking.shopName,
+                                        fontSize = 20.sp,
+                                        fontWeight = FontWeight.Bold
                                     )
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Column {
+
+                                    Spacer(modifier = Modifier.height(4.dp))
+
+                                    Text(
+                                        text = booking.serviceName,
+                                        fontSize = 16.sp,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+
+                                    Spacer(modifier = Modifier.height(8.dp))
+
+                                    // Price
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
                                         Text(
-                                            text = "Cancellation Reason",
-                                            fontSize = 12.sp,
-                                            color = Color(0xFFE53935).copy(alpha = 0.7f)
-                                        )
-                                        Text(
-                                            text = booking.cancellationReason,
+                                            text = "Price",
                                             fontSize = 14.sp,
-                                            color = Color(0xFFE53935)
+                                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                                        )
+                                        Text(
+                                            text = "₹${booking.servicePrice}",
+                                            fontSize = 18.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = MaterialTheme.colorScheme.primary
                                         )
                                     }
                                 }
                             }
-                        }
 
-                        Spacer(modifier = Modifier.height(24.dp))
+                            Spacer(modifier = Modifier.height(16.dp))
 
-                        // Action Buttons
-                        when (booking.status) {
-                            BookingStatus.PENDING -> {
-                                Button(
-                                    onClick = { showCancelDialog = true },
+                            // Date & Time
+                            InfoCard(
+                                icon = Icons.Default.CalendarToday,
+                                title = "Date & Time",
+                                content = "${formatFullDate(booking.bookingDate)} at ${formatTime(booking.bookingTime)}"
+                            )
+
+                            Spacer(modifier = Modifier.height(12.dp))
+
+                            // ============= FIXED LOCATION DISPLAY WITH FULL ADDRESS =============
+                            if (booking.serviceLocation == ServiceLocation.CUSTOMER_HOME) {
+                                // Home Service Address - Full address with city and pincode
+                                InfoCard(
+                                    icon = Icons.Default.Home,
+                                    title = "Home Service Address",
+                                    content = buildString {
+                                        append(booking.serviceAddress)
+                                        if (booking.customerCity.isNotBlank()) {
+                                            append("\n${booking.customerCity}")
+                                            if (booking.customerPincode.isNotBlank()) {
+                                                append(" - ${booking.customerPincode}")
+                                            }
+                                        }
+                                    }
+                                )
+                            } else {
+                                // Shop Location - Full address with all details
+                                InfoCard(
+                                    icon = Icons.Default.Store,
+                                    title = "Shop Location",
+                                    content = buildString {
+                                        // Shop address
+                                        if (booking.shopAddress.isNotBlank()) {
+                                            append(booking.shopAddress)
+                                        } else {
+                                            append(booking.shopName)
+                                        }
+
+                                        // Shop city if available
+                                        if (booking.customerCity.isNotBlank()) {
+                                            append("\n${booking.customerCity}")
+                                        }
+
+                                        // Shop pincode if available
+                                        if (booking.customerPincode.isNotBlank()) {
+                                            append(" - ${booking.customerPincode}")
+                                        }
+
+                                        // Shop contact as fallback
+                                        if (booking.shopAddress.isBlank() &&
+                                            booking.customerCity.isBlank() &&
+                                            booking.customerPincode.isBlank()) {
+                                            append("\n📍 Contact shop for exact location")
+                                        }
+                                    }
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.height(12.dp))
+
+                            // Duration
+                            if (booking.serviceDuration.isNotBlank()) {
+                                InfoCard(
+                                    icon = Icons.Default.Schedule,
+                                    title = "Duration",
+                                    content = booking.serviceDuration
+                                )
+                                Spacer(modifier = Modifier.height(12.dp))
+                            }
+
+                            // Customer Contact (for shop to contact)
+                            if (booking.customerPhone.isNotBlank()) {
+                                InfoCard(
+                                    icon = Icons.Default.Phone,
+                                    title = "Customer Contact",
+                                    content = "${booking.customerName} - ${booking.customerPhone}"
+                                )
+                                Spacer(modifier = Modifier.height(12.dp))
+                            }
+
+                            // Notes (if any)
+                            if (booking.notes.isNotBlank()) {
+                                InfoCard(
+                                    icon = Icons.Default.Notes,
+                                    title = "Additional Notes",
+                                    content = booking.notes
+                                )
+                                Spacer(modifier = Modifier.height(12.dp))
+                            }
+
+                            // Cancellation Info (if cancelled or rejected)
+                            if ((booking.status == BookingStatus.CANCELLED || booking.status == BookingStatus.REJECTED)
+                                && booking.cancellationReason.isNotBlank()) {
+                                Card(
                                     modifier = Modifier.fillMaxWidth(),
-                                    colors = ButtonDefaults.buttonColors(
-                                        containerColor = Color(0xFFE53935)
+                                    colors = CardDefaults.cardColors(
+                                        containerColor = Color(0xFFE53935).copy(alpha = 0.1f)
                                     )
                                 ) {
-                                    Text("Cancel Booking")
-                                }
-                            }
-                            BookingStatus.CONFIRMED -> {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                ) {
-                                    OutlinedButton(
-                                        onClick = { /* Contact shop */ },
-                                        modifier = Modifier.weight(1f)
+                                    Row(
+                                        modifier = Modifier.padding(16.dp),
+                                        verticalAlignment = Alignment.CenterVertically
                                     ) {
-                                        Icon(Icons.Default.Phone, contentDescription = null)
-                                        Spacer(modifier = Modifier.width(4.dp))
-                                        Text("Contact")
+                                        Icon(
+                                            Icons.Default.Warning,
+                                            contentDescription = null,
+                                            tint = Color(0xFFE53935)
+                                        )
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Column {
+                                            Text(
+                                                text = if (booking.status == BookingStatus.CANCELLED)
+                                                    "Cancellation Reason" else "Rejection Reason",
+                                                fontSize = 12.sp,
+                                                color = Color(0xFFE53935).copy(alpha = 0.7f)
+                                            )
+                                            Text(
+                                                text = booking.cancellationReason,
+                                                fontSize = 14.sp,
+                                                color = Color(0xFFE53935)
+                                            )
+                                        }
                                     }
+                                }
+                                Spacer(modifier = Modifier.height(12.dp))
+                            }
+
+                            Spacer(modifier = Modifier.height(24.dp))
+
+                            // Action Buttons
+                            when (booking.status) {
+                                BookingStatus.PENDING -> {
                                     Button(
-                                        onClick = { /* Get directions */ },
-                                        modifier = Modifier.weight(1f)
+                                        onClick = { showCancelDialog = true },
+                                        modifier = Modifier.fillMaxWidth(),
+                                        enabled = !isLoading,
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = Color(0xFFE53935)
+                                        )
                                     ) {
-                                        Icon(Icons.Default.Map, contentDescription = null)
+                                        if (isLoading) {
+                                            CircularProgressIndicator(
+                                                modifier = Modifier.size(20.dp),
+                                                color = Color.White
+                                            )
+                                        } else {
+                                            Text("Cancel Booking")
+                                        }
+                                    }
+                                }
+                                BookingStatus.CONFIRMED -> {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        OutlinedButton(
+                                            onClick = {
+                                                // Open phone dialer
+                                            },
+                                            modifier = Modifier.weight(1f)
+                                        ) {
+                                            Icon(Icons.Default.Phone, contentDescription = null)
+                                            Spacer(modifier = Modifier.width(4.dp))
+                                            Text("Contact Shop")
+                                        }
+                                        Button(
+                                            onClick = {
+                                                // Open Google Maps with coordinates or address
+                                            },
+                                            modifier = Modifier.weight(1f)
+                                        ) {
+                                            Icon(Icons.Default.Map, contentDescription = null)
+                                            Spacer(modifier = Modifier.width(4.dp))
+                                            Text("Directions")
+                                        }
+                                    }
+                                }
+                                BookingStatus.COMPLETED -> {
+                                    Button(
+                                        onClick = {
+                                            // Rate service
+                                        },
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Icon(Icons.Default.Star, contentDescription = null)
                                         Spacer(modifier = Modifier.width(4.dp))
-                                        Text("Directions")
+                                        Text("Rate This Service")
+                                    }
+                                }
+                                else -> {
+                                    Button(
+                                        onClick = { navController.popBackStack() },
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Text("Back to Bookings")
                                     }
                                 }
                             }
-                            BookingStatus.COMPLETED -> {
-                                Button(
-                                    onClick = { /* Rate service */ },
-                                    modifier = Modifier.fillMaxWidth()
-                                ) {
-                                    Icon(Icons.Default.Star, contentDescription = null)
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                    Text("Rate This Service")
-                                }
-                            }
-                            else -> {}
+
+                            Spacer(modifier = Modifier.height(16.dp))
                         }
                     }
                 }
+
+                is Resource.Error -> {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(paddingValues),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            modifier = Modifier.padding(24.dp)
+                        ) {
+                            Icon(
+                                Icons.Default.ErrorOutline,
+                                contentDescription = null,
+                                modifier = Modifier.size(64.dp),
+                                tint = MaterialTheme.colorScheme.error
+                            )
+
+                            Spacer(modifier = Modifier.height(16.dp))
+
+                            Text(
+                                text = "Failed to load booking",
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.error
+                            )
+
+                            Spacer(modifier = Modifier.height(8.dp))
+
+                            Text(
+                                text = state.message ?: "Something went wrong",
+                                fontSize = 14.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                textAlign = TextAlign.Center
+                            )
+
+                            Spacer(modifier = Modifier.height(16.dp))
+
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                OutlinedButton(
+                                    onClick = { navController.popBackStack() }
+                                ) {
+                                    Text("Go Back")
+                                }
+
+                                Button(
+                                    onClick = {
+                                        viewModel.getBookingDetails(bookingId)
+                                    }
+                                ) {
+                                    Text("Retry")
+                                }
+                            }
+                        }
+                    }
+                }
+
+                else -> {}
             }
-            is Resource.Error -> {
+
+            // Loading Overlay
+            if (isLoading) {
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(paddingValues),
+                        .background(Color.Black.copy(alpha = 0.3f)),
                     contentAlignment = Alignment.Center
                 ) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally
+                    Card(
+                        modifier = Modifier.padding(16.dp),
+                        shape = MaterialTheme.shapes.medium
                     ) {
-                        Text(
-                            text = state.message ?: "Failed to load booking",
-                            color = MaterialTheme.colorScheme.error
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Button(onClick = {
-                            viewModel.getBookingDetails(bookingId)
-                        }) {
-                            Text("Retry")
+                        Column(
+                            modifier = Modifier.padding(24.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            CircularProgressIndicator()
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Text(
+                                text = "Processing...",
+                                fontWeight = FontWeight.Medium
+                            )
                         }
                     }
                 }
             }
-            else -> {}
         }
     }
 
     // Cancel Confirmation Dialog
     if (showCancelDialog) {
-        CancelBookingDialog(
-            onConfirm = { reason ->
-                currentUser?.userId?.let { userId ->
-                    viewModel.cancelBooking(bookingId, reason, userId)
-                    showCancelDialog = false
-                    navController.popBackStack()
+        AlertDialog(
+            onDismissRequest = {
+                showCancelDialog = false
+                cancelReason = ""
+            },
+            title = { Text("Cancel Booking") },
+            text = {
+                Column {
+                    Text(
+                        text = "Are you sure you want to cancel this booking?",
+                        fontSize = 14.sp
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = cancelReason,
+                        onValueChange = { cancelReason = it },
+                        label = { Text("Reason for cancellation (optional)") },
+                        modifier = Modifier.fillMaxWidth(),
+                        minLines = 2
+                    )
                 }
             },
-            onDismiss = { showCancelDialog = false }
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        currentUser?.userId?.let { userId ->
+                            viewModel.cancelBooking(bookingId, cancelReason, userId)
+                        }
+                        showCancelDialog = false
+                    },
+                    colors = ButtonDefaults.textButtonColors(
+                        contentColor = Color(0xFFE53935)
+                    )
+                ) {
+                    Text("Confirm Cancel")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    showCancelDialog = false
+                    cancelReason = ""
+                }) {
+                    Text("Back")
+                }
+            }
         )
     }
 }
@@ -363,7 +610,8 @@ fun InfoCard(
     content: String
 ) {
     Card(
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier.fillMaxWidth(),
+        elevation = CardDefaults.cardElevation(1.dp)
     ) {
         Row(
             modifier = Modifier
@@ -387,55 +635,12 @@ fun InfoCard(
                 Text(
                     text = content,
                     fontSize = 14.sp,
-                    fontWeight = FontWeight.Medium
+                    fontWeight = FontWeight.Medium,
+                    lineHeight = 20.sp
                 )
             }
         }
     }
-}
-
-@Composable
-fun CancelBookingDialog(
-    onConfirm: (String) -> Unit,
-    onDismiss: () -> Unit
-) {
-    var reason by remember { mutableStateOf("") }
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Cancel Booking") },
-        text = {
-            Column {
-                Text(
-                    text = "Are you sure you want to cancel this booking?",
-                    fontSize = 14.sp
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                OutlinedTextField(
-                    value = reason,
-                    onValueChange = { reason = it },
-                    label = { Text("Reason for cancellation (optional)") },
-                    modifier = Modifier.fillMaxWidth(),
-                    minLines = 2
-                )
-            }
-        },
-        confirmButton = {
-            TextButton(
-                onClick = { onConfirm(reason) },
-                colors = ButtonDefaults.textButtonColors(
-                    contentColor = Color(0xFFE53935)
-                )
-            ) {
-                Text("Confirm Cancel")
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Back")
-            }
-        }
-    )
 }
 
 private fun formatFullDate(dateStr: String): String {
