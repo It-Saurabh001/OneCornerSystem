@@ -25,6 +25,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.ChevronRight
@@ -225,7 +226,7 @@ fun ProfileScreen(
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     // Email
-                    UserDetailItem("📧 Email", user.email)
+                    UserDetailItem("Email", user.email)
                     HorizontalDivider(Modifier, DividerDefaults.Thickness, DividerDefaults.color)
 
                     // Phone
@@ -234,10 +235,10 @@ fun ProfileScreen(
 
                     // Role
                     UserDetailItem("👤 Role", user.role.uppercase().replace("_", " "))
-                    HorizontalDivider(Modifier, DividerDefaults.Thickness, DividerDefaults.color)
+//                    HorizontalDivider(Modifier, DividerDefaults.Thickness, DividerDefaults.color)
 
                     // User ID
-                    UserDetailItem("🆔 User ID", user.userId)
+//                    UserDetailItem("User ID", user.userId)
                 }
             }
 
@@ -313,7 +314,7 @@ fun ProfileScreen(
                             Card(
                                 colors = CardDefaults.cardColors(
                                     containerColor = if (shop.shopType == ShopType.PRODUCT)
-                                        Color(0xFF4CAF50) else Color(0xFF2196F3)
+                                        Color(0xFF93E596) else Color(0xFF2196F3)
                                 )
                             ) {
                                 Text(
@@ -462,7 +463,7 @@ fun ProfileScreen(
                     .fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp)
             ) {
-                Icon(Icons.Default.Logout, contentDescription = null, tint = Color.White)
+                Icon(Icons.AutoMirrored.Filled.Logout, contentDescription = null, tint = Color.White)
                 Spacer(modifier = Modifier.width(8.dp))
                 Text("Logout / लॉग आउट", color = Color.White)
             }
@@ -528,7 +529,7 @@ fun ProfileTopBar(onBackClick: () -> Unit) {
             verticalAlignment = Alignment.CenterVertically
         ) {
             IconButton(onClick = onBackClick) {
-                Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = Color.White)
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color.White)
             }
             Text(
                 text = "Profile",

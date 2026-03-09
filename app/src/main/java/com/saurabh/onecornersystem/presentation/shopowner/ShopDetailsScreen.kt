@@ -146,7 +146,7 @@ fun ShopDetailsScreen(
                         .padding(16.dp),
                     colors = CardDefaults.cardColors(
                         containerColor = if (shop.shopType == ShopType.PRODUCT)
-                            Color(0xFF4CAF50) else Color(0xFF2196F3)
+                            Color(0xFFACC76B) else Color(0xFF6EB8FA)
                     )
                 ) {
                     Text(
@@ -378,39 +378,39 @@ fun ShopDetailsScreen(
                 Spacer(modifier = Modifier.height(16.dp))
 
                 // Shop ID Card (for reference)
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
-                    )
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            Icons.Default.Business,
-                            contentDescription = null,
-                            modifier = Modifier.size(20.dp),
-                            tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Column {
-                            Text(
-                                text = "Shop ID",
-                                fontSize = 12.sp,
-                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                            )
-                            Text(
-                                text = shop.shopId,
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Medium
-                            )
-                        }
-                    }
-                }
+//                Card(
+//                    modifier = Modifier.fillMaxWidth(),
+//                    colors = CardDefaults.cardColors(
+//                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+//                    )
+//                ) {
+//                    Row(
+//                        modifier = Modifier
+//                            .fillMaxWidth()
+//                            .padding(16.dp),
+//                        verticalAlignment = Alignment.CenterVertically
+//                    ) {
+//                        Icon(
+//                            Icons.Default.Business,
+//                            contentDescription = null,
+//                            modifier = Modifier.size(20.dp),
+//                            tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+//                        )
+////                        Spacer(modifier = Modifier.width(8.dp))
+////                        Column {
+////                            Text(
+////                                text = "Shop ID",
+////                                fontSize = 12.sp,
+////                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+////                            )
+////                            Text(
+////                                text = shop.shopId,
+////                                fontSize = 12.sp,
+////                                fontWeight = FontWeight.Medium
+////                            )
+////                        }
+//                    }
+//                }
 
                 Spacer(modifier = Modifier.height(24.dp))
 

@@ -117,7 +117,7 @@ fun RegisterScreen(
                     singleLine = true
                 )
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(10.dp))
 
                 // Email Field
                 OutlinedTextField(
@@ -129,7 +129,7 @@ fun RegisterScreen(
                     singleLine = true
                 )
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(10.dp))
 
                 // Phone Field
                 OutlinedTextField(
@@ -141,7 +141,7 @@ fun RegisterScreen(
                     singleLine = true
                 )
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(10.dp))
 
                 // Password Field
                 OutlinedTextField(
@@ -159,7 +159,7 @@ fun RegisterScreen(
                     singleLine = true
                 )
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(10.dp))
 
                 // Confirm Password Field
                 OutlinedTextField(
@@ -188,7 +188,7 @@ fun RegisterScreen(
                     )
                 }
 
-                Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(20.dp))
 
                 // Role Selection
                 Text(
@@ -215,7 +215,7 @@ fun RegisterScreen(
                     )
                 }
 
-                Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(20.dp))
 
                 // Show ShopType Selection for Shop Owners
                 if (selectedRole == "shop_owner") {
@@ -249,10 +249,10 @@ fun RegisterScreen(
                         )
                     }
 
-                    Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(10.dp))
                 }
 
-                Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(20.dp))
                 if (registerState is Resource.Error) {
                     Card(
                         colors = CardDefaults.cardColors(
@@ -267,7 +267,7 @@ fun RegisterScreen(
                         )
                     }
 
-                    Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(10.dp))
                 }
 
                 // Register Button
@@ -299,14 +299,14 @@ fun RegisterScreen(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(10.dp))
 
                 // Terms and Conditions
                 Text(
                     text = "By registering, you agree to our Terms and Conditions",
                     fontSize = 12.sp,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
-                    modifier = Modifier.align(Alignment.CenterHorizontally)
+                    modifier = Modifier.fillMaxWidth().align(Alignment.CenterHorizontally)
                 )
             }
 
