@@ -1,33 +1,100 @@
 package com.saurabh.onecornersystem.presentation.customer
 
 import android.Manifest
-import android.content.Intent
+import android.app.Activity
 import android.location.Location
-import android.provider.Settings
 import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.filled.Bookmark
+import androidx.compose.material.icons.filled.Build
+import androidx.compose.material.icons.filled.CarRepair
+import androidx.compose.material.icons.filled.CleaningServices
+import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.ElectricalServices
+import androidx.compose.material.icons.filled.Error
+import androidx.compose.material.icons.filled.Face
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.Handyman
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.LocationOff
+import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.MyLocation
+import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Plumbing
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.SearchOff
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DrawerValue
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalDrawerSheet
+import androidx.compose.material3.ModalNavigationDrawer
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.rememberDrawerState
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.navigation.NavController
-import coil.compose.rememberAsyncImagePainter
 import com.saurabh.onecornersystem.data.model.CategoryWithType
 import com.saurabh.onecornersystem.data.model.Shop
 import com.saurabh.onecornersystem.data.model.ShopType
@@ -37,6 +104,120 @@ import com.saurabh.onecornersystem.presentation.customer.viewmodel.CustomerShopV
 import com.saurabh.onecornersystem.utils.LocationUtils
 import com.saurabh.onecornersystem.utils.Resource
 import kotlinx.coroutines.launch
+import androidx.compose.ui.tooling.preview.Preview
+import com.google.firebase.firestore.GeoPoint
+import com.saurabh.onecornersystem.presentation.components.NearbyShopItemCard
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Preview(showBackground = true, showSystemUi = true)
+@Composable
+fun CustomerHomeScreenPreview() {
+    val mockUserLocation = android.location.Location("dummy_provider").apply {
+        latitude = 26.9325569
+        longitude = 80.9402406
+    }
+    val mockCategories = listOf("All", "Repair Services", "Plumbing", "Cleaning")
+    val mockShops = listOf(
+        Shop(
+            shopId = "shop_1",
+            shopName = "A1 Expert Plumbers",
+            category = "Plumbing",
+            rating = 4.8,
+            totalRatings = 124,
+            open = true,
+            address = "Gomti Nagar, Lucknow, Uttar Pradesh",
+            location = GeoPoint(26.850000, 80.949999),
+            hasLogo = false,
+            logo = "",
+        ),
+        Shop(
+            shopId = "shop_2",
+            shopName = "Quick Fix Electricals",
+            category = "Repair Services",
+            rating = 4.2,
+            totalRatings = 56,
+            open = true,
+            address = "Hazratganj, Lucknow",
+            location = GeoPoint(26.860000, 80.950000),
+            hasLogo = false,
+            logo = ""
+        ),
+        Shop(
+            shopId = "shop_3",
+            shopName = "Shine Cleaning Co.",
+            category = "Cleaning",
+            rating = 3.9,
+            totalRatings = 12,
+            open = false,
+            address = "Aliganj, Lucknow",
+            location = GeoPoint(26.880000, 80.940000),
+            hasLogo = false,
+            logo = ""
+        )
+    )
+    MaterialTheme {
+        Scaffold(
+            topBar = {
+                TopAppBar(
+                    title = {
+                        Text(
+                            text = "OneCorner Services",
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    },
+                    navigationIcon = {
+                        IconButton(onClick = { }) {
+                            Icon(Icons.Default.Menu, contentDescription = "Menu")
+                        }
+                    },
+                    actions = {
+                        IconButton(onClick = {}) {
+                            Icon(Icons.Default.Notifications, contentDescription = "Notifications")
+                        }
+                    }
+                )
+            },
+            bottomBar = {
+                NavigationBar {
+                    NavigationBarItem(selected = true, onClick = {}, icon = { Icon(Icons.Default.Home, "") }, label = { Text("Home") })
+                    NavigationBarItem(selected = false, onClick = {}, icon = { Icon(Icons.Default.Bookmark, "") }, label = { Text("Bookings") })
+                    NavigationBarItem(selected = false, onClick = {}, icon = { Icon(Icons.Default.Favorite, "") }, label = { Text("Favorites") })
+                    NavigationBarItem(selected = false, onClick = {}, icon = { Icon(Icons.Default.Person, "") }, label = { Text("Profile") })
+                }
+            }
+        ) { paddingValues ->
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                item {
+                    ServiceSearchBar(query = "", onQueryChange = {}, onSearch = {}, onClear = {})
+                }
+                item {
+                    ServiceCategoriesRow(
+                        categories = mockCategories,
+                        selectedCategory = "All",
+                        onCategorySelected = {}
+                    )
+                }
+                item {
+                    SectionHeader(title = "Popular Services Near You", onViewAllClick = { })
+                }
+                items(mockShops) { shop ->
+                    ServiceShopCard(
+                        shop = shop,
+                        userLocation = mockUserLocation,
+                        onClick = {}
+                    )
+                }
+                item { Spacer(modifier = Modifier.height(16.dp)) }
+            }
+        }
+    }
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -48,78 +229,87 @@ fun CustomerHomeScreen(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val drawerState = rememberDrawerState(DrawerValue.Closed)
+    val lifecycleOwner = LocalLifecycleOwner.current
 
     var searchQuery by remember { mutableStateOf("") }
     var selectedCategory by remember { mutableStateOf("All") }
-    var selectedShopType by remember { mutableStateOf<ShopType?>(ShopType.SERVICE) } // Default to SERVICE
+    var selectedShopType by remember { mutableStateOf<ShopType?>(ShopType.SERVICE) }
     var isSearching by remember { mutableStateOf(false) }
 
-    // Location states
-    var userLocation by remember { mutableStateOf<Location?>(null) }
-    var isLocationLoading by remember { mutableStateOf(true) }
-    var showLocationSettingsDialog by remember { mutableStateOf(false) }
+    val userLocation by viewModel.userLocation.collectAsState()
+    var isLocationLoading by remember { mutableStateOf(false) }
 
-    // ViewModel states
-    val nearbyShopsState by viewModel.nearbyServiceShopsState.collectAsState() // Only service shops
+    val nearbyServiceItemsState by viewModel.nearbyServiceItemsState.collectAsState()
+    val nearbyShopsState by viewModel.nearbyServiceShopsState.collectAsState()
     val serviceCategoriesState by viewModel.serviceCategoriesState.collectAsState()
-    val searchServicesState by viewModel.searchServicesState.collectAsState() // Search results
+    val searchServicesState by viewModel.searchServicesState.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
 
-    // Location permission launcher
+    val gpsResolutionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartIntentSenderForResult()
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            Log.d("CustomerHomeScreen", "GPS Resolution OK")
+            scope.launch {
+                isLocationLoading = true
+                val freshLoc = LocationUtils.getFreshCurrentLocation(context)
+                isLocationLoading = false
+
+                // Location ViewModel me update karo
+                viewModel.updateUserLocation(freshLoc)
+
+                freshLoc?.let { location ->
+                    viewModel.getNearbyServiceItems(location.latitude, location.longitude)
+                }
+            }
+        }
+    }
+
+    var triggerLocationRefresh: () -> Unit = {}
+
     val locationPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestMultiplePermissions()
     ) { permissions ->
-        val granted = permissions[Manifest.permission.ACCESS_FINE_LOCATION] == true ||
-                     permissions[Manifest.permission.ACCESS_COARSE_LOCATION] == true
-        if (granted) {
-            // Permission granted, fetch location
-            scope.launch {
-                if (LocationUtils.isLocationEnabled(context)) {
-                    isLocationLoading = true
-                    userLocation = LocationUtils.getFreshCurrentLocation(context)
-                    isLocationLoading = false
+        val grantedFine = permissions[Manifest.permission.ACCESS_FINE_LOCATION] == true
+        val grantedCoarse = permissions[Manifest.permission.ACCESS_COARSE_LOCATION] == true
 
-                    // Fetch nearby shops with new location
-                    userLocation?.let { location ->
-                        Log.d("CustomerHomeScreen", "Fetching shops for location: ${location.latitude}, ${location.longitude}")
-                        viewModel.getNearbyServiceShops(location.latitude, location.longitude)
-                    }
-                } else {
-                    showLocationSettingsDialog = true
-                    isLocationLoading = false
-                }
-            }
+        if (grantedFine || grantedCoarse) {
+            triggerLocationRefresh()
         } else {
             isLocationLoading = false
         }
     }
 
-    // Fetch fresh location when screen opens
-    LaunchedEffect(Unit) {
-        Log.d("CustomerHomeScreen", "Checking location permission...")
-
+    triggerLocationRefresh = {
         if (LocationUtils.hasLocationPermission(context)) {
-            if (LocationUtils.isLocationEnabled(context)) {
-                isLocationLoading = true
-                Log.d("CustomerHomeScreen", "Fetching fresh current location...")
+            LocationUtils.checkLocationSettings(
+                context = context,
+                onResolutionRequired = { intentSender ->
+                    gpsResolutionLauncher.launch(
+                        IntentSenderRequest.Builder(intentSender).build()
+                    )
+                },
+                onAlreadySatisfied = {
+                    isLocationLoading = true
+                    scope.launch {
+                        Log.d("CustomerHomeScreen", "Fetching fresh location...")
+                        var loc = LocationUtils.getFreshCurrentLocation(context)
 
-                // Fetch fresh location
-                userLocation = LocationUtils.getFreshCurrentLocation(context)
-                isLocationLoading = false
+                        if (loc == null) {
+                            loc = LocationUtils.getCurrentLocation(context)
+                        }
 
-                userLocation?.let { location ->
-                    Log.d("CustomerHomeScreen", "Location fetched: ${location.latitude}, ${location.longitude}")
-                    viewModel.getNearbyServiceShops(location.latitude, location.longitude)
-                } ?: run {
-                    Log.d("CustomerHomeScreen", "Could not get location")
+                        isLocationLoading = false
+                        // Location ViewModel me update karo
+                        viewModel.updateUserLocation(loc)
+
+                        loc?.let { location ->
+                            viewModel.getNearbyServiceShops(location.latitude, location.longitude)
+                        }
+                    }
                 }
-            } else {
-                // Location is off
-                showLocationSettingsDialog = true
-                isLocationLoading = false
-            }
+            )
         } else {
-            // Request permission
             locationPermissionLauncher.launch(
                 arrayOf(
                     Manifest.permission.ACCESS_FINE_LOCATION,
@@ -129,46 +319,25 @@ fun CustomerHomeScreen(
         }
     }
 
-    // Categories from ViewModel
+    LaunchedEffect(Unit) {
+        if (userLocation == null) {
+            triggerLocationRefresh()
+        }
+    }
+
     val categories = remember { mutableStateListOf<String>().apply { add("All") } }
 
     LaunchedEffect(Unit) {
         viewModel.getServiceCategories()
     }
 
-    // Update categories when loaded
     LaunchedEffect(serviceCategoriesState) {
         val state = serviceCategoriesState
-        Log.d("TAG", "CustomerHomeScreen: $state")
         if (state is Resource.Success<List<CategoryWithType>>) {
             categories.clear()
             categories.add("All")
             categories.addAll(state.data.map { it.categoryName })
         }
-    }
-
-    // Location Settings Dialog
-    if (showLocationSettingsDialog) {
-        AlertDialog(
-            onDismissRequest = { showLocationSettingsDialog = false },
-            title = { Text("Location is Off") },
-            text = { Text("Please turn on location services to find services near you.") },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        showLocationSettingsDialog = false
-                        context.startActivity(Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS))
-                    }
-                ) {
-                    Text("Open Settings")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showLocationSettingsDialog = false }) {
-                    Text("Cancel")
-                }
-            }
-        )
     }
 
     ModalNavigationDrawer(
@@ -187,18 +356,9 @@ fun CustomerHomeScreen(
                         scope.launch { drawerState.close() }
                         navController.navigate("settings")
                     },
-                    onAboutClick = {
-                        scope.launch { drawerState.close() }
-                        // Show about
-                    },
-                    onThemeClick = {
-                        scope.launch { drawerState.close() }
-                        // Toggle theme
-                    },
-                    onContactClick = {
-                        scope.launch { drawerState.close() }
-                        // Show contact
-                    }
+                    onAboutClick = { scope.launch { drawerState.close() } },
+                    onThemeClick = { scope.launch { drawerState.close() } },
+                    onContactClick = { scope.launch { drawerState.close() } }
                 )
             }
         }
@@ -219,7 +379,6 @@ fun CustomerHomeScreen(
                         }
                     },
                     actions = {
-                        // Notifications button
                         IconButton(onClick = {}) {
                             Icon(Icons.Default.Notifications, contentDescription = "Notifications")
                         }
@@ -255,14 +414,20 @@ fun CustomerHomeScreen(
                 }
             }
         ) { paddingValues ->
-            if (isLoading && nearbyShopsState is Resource.Loading) {
+            if (isLocationLoading || (isLoading && nearbyServiceItemsState is Resource.Loading)) {
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(paddingValues),
                     contentAlignment = Alignment.Center
                 ) {
-                    CircularProgressIndicator()
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        CircularProgressIndicator()
+                        if (isLocationLoading) {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text("Getting location...")
+                        }
+                    }
                 }
             } else {
                 LazyColumn(
@@ -271,7 +436,6 @@ fun CustomerHomeScreen(
                         .padding(paddingValues),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    // Search Bar
                     item {
                         ServiceSearchBar(
                             query = searchQuery,
@@ -299,9 +463,7 @@ fun CustomerHomeScreen(
                         )
                     }
 
-                    // Show search results if searching
                     if (isSearching && searchQuery.isNotBlank()) {
-                        // Search Results Header
                         item {
                             Text(
                                 text = "Search Results for \"$searchQuery\"",
@@ -311,22 +473,16 @@ fun CustomerHomeScreen(
                             )
                         }
 
-                        // Search Results
                         when (val state = searchServicesState) {
-                            is Resource.Loading -> {
-                                item { SearchLoading() }
-                            }
+                            is Resource.Loading -> item { SearchLoading() }
                             is Resource.Success -> {
                                 if (state.data.isEmpty()) {
                                     item { EmptySearchResults(query = searchQuery) }
                                 } else {
                                     items(state.data) { service ->
-                                        ServiceSearchResultCard(
-                                            service = service,
-                                            onBookClick = {
-                                                navController.navigate("booking_form/${service.itemId}")
-                                            }
-                                        )
+                                        NearbyShopItemCard(item = service) {
+                                            navController.navigate("service_details_customer/${service.itemId}")
+                                        }
                                     }
                                 }
                             }
@@ -341,137 +497,91 @@ fun CustomerHomeScreen(
                             else -> {}
                         }
                     } else {
-                        // Normal content when not searching
-
-                        // Service Categories
                         item {
                             ServiceCategoriesRow(
                                 categories = categories,
                                 selectedCategory = selectedCategory,
                                 onCategorySelected = {
                                     selectedCategory = it
-                                    // Filter shops by category
                                 }
                             )
                         }
 
-                        // Popular Services Section
                         item {
-                        SectionHeader(
-                            title = "Popular Services Near You",
-                            onViewAllClick = {
-//                                navController.navigate("all_services")
-                            }
-                        )
-                    }
+                            SectionHeader(
+                                title = "Popular Services Near You",
+                                onViewAllClick = { }
+                            )
+                        }
 
-                    // Service Shops Grid
-                    when (val state = nearbyShopsState) {
-                        is Resource.Loading -> {
-                            item {
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .height(200.dp),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                        CircularProgressIndicator()
-                                        Spacer(modifier = Modifier.height(8.dp))
-                                        Text(
-                                            text = "Finding services near you...",
-                                            style = MaterialTheme.typography.bodyMedium,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        when (val state = nearbyServiceItemsState) {
+                            is Resource.Loading -> {
+                                item {
+                                    Box(
+                                        modifier = Modifier.fillMaxWidth().height(200.dp),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                            CircularProgressIndicator()
+                                            Spacer(modifier = Modifier.height(8.dp))
+                                            Text(
+                                                text = "Finding services near you...",
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                            is Resource.Success -> {
+                                val filteredServiece = if (selectedCategory == "All") {
+                                    state.data
+                                } else {
+                                    state.data.filter { it.category == selectedCategory }
+                                }
+
+                                if (filteredServiece.isEmpty()) {
+                                    item {
+                                        NoShopsAvailableCard(
+                                            selectedCategory = selectedCategory,
+                                            hasLocation = userLocation != null,
+                                            onRefresh = { triggerLocationRefresh() }
+                                        )
+                                    }
+                                } else {
+                                    items(filteredServiece) { service ->
+                                        NearbyShopItemCard(
+                                            item = service,
+                                            onClick = {
+                                                navController.navigate("service_details_customer/${service.itemId}")
+                                            }
                                         )
                                     }
                                 }
                             }
-                            Log.d("CustomerHomeScreen", "Loading nearby shops...")
-                        }
-                        is Resource.Success -> {
-                            val filteredShops = if (selectedCategory == "All") {
-                                state.data
-                            } else {
-                                state.data.filter { it.category == selectedCategory }
-                            }
-
-                            Log.d("CustomerHomeScreen", "Loaded ${state.data.size} shops, filtered: ${filteredShops.size}")
-
-                            if (filteredShops.isEmpty()) {
-                                // No shops available
+                            is Resource.Error -> {
                                 item {
-                                    NoShopsAvailableCard(
-                                        selectedCategory = selectedCategory,
-                                        hasLocation = userLocation != null,
-                                        onRefresh = {
-                                            scope.launch {
-                                                if (LocationUtils.hasLocationPermission(context)) {
-                                                    isLocationLoading = true
-                                                    userLocation = LocationUtils.getFreshCurrentLocation(context)
-                                                    isLocationLoading = false
-                                                    userLocation?.let { location ->
-                                                        viewModel.getNearbyServiceShops(location.latitude, location.longitude)
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    )
-                                }
-                            } else {
-                                items(filteredShops) { shop ->
-                                    ServiceShopCard(
-                                        shop = shop,
-                                        userLocation = userLocation,
-                                        onClick = {
-                                            Log.d("CustomerHomeScreen", "Navigating to shop: ${shop.shopId} - ${shop.shopName}")
-                                            navController.navigate("service_shop/${shop.shopId}")
-                                        }
+                                    ErrorCard(
+                                        message = state.message,
+                                        onRetry = { triggerLocationRefresh() }
                                     )
                                 }
                             }
-                        }
-                        is Resource.Error -> {
-                            item {
-                                Log.e("CustomerHomeScreen", "Error loading shops: ${state.message}")
-                                ErrorCard(
-                                    message = state.message,
-                                    onRetry = {
-                                        userLocation?.let { location ->
-                                            viewModel.getNearbyServiceShops(location.latitude, location.longitude)
-                                        }
+                            is Resource.Idle -> {
+                                item {
+                                    if (userLocation == null && !isLocationLoading) {
+                                        LocationRequiredCard(
+                                            onEnableLocation = {
+                                                triggerLocationRefresh()
+                                            }
+                                        )
                                     }
-                                )
-                            }
-                        }
-                        is Resource.Idle -> {
-                            // Location not fetched yet
-                            item {
-                                if (userLocation == null && !isLocationLoading) {
-                                    LocationRequiredCard(
-                                        onEnableLocation = {
-                                            if (!LocationUtils.hasLocationPermission(context)) {
-                                                locationPermissionLauncher.launch(
-                                                    arrayOf(
-                                                        Manifest.permission.ACCESS_FINE_LOCATION,
-                                                        Manifest.permission.ACCESS_COARSE_LOCATION
-                                                    )
-                                                )
-                                            } else if (!LocationUtils.isLocationEnabled(context)) {
-                                                showLocationSettingsDialog = true
-                                            }
-                                        }
-                                    )
                                 }
                             }
+                            else -> {}
                         }
-                        else -> {
-                            // Handle any other state
-                        }
+                        item { Spacer(modifier = Modifier.height(16.dp)) }
                     }
-
-                    // Bottom Spacer
-                    item { Spacer(modifier = Modifier.height(16.dp)) }
-                    } // End of else (not searching) block
                 }
             }
         }
@@ -485,23 +595,45 @@ fun ServiceSearchBar(
     onSearch: () -> Unit,
     onClear: () -> Unit = {}
 ) {
+    // Keyboard hatane ke liye focus manager
+    val focusManager = LocalFocusManager.current
+
     OutlinedTextField(
         value = query,
         onValueChange = onQueryChange,
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp),
-        placeholder = { Text("Search for services (plumber, salon, repair...)") },
+        placeholder = {
+            Text(
+                text = "Search for services (plumber, salon...)",
+                fontSize = 14.sp,
+                maxLines = 1,
+                modifier = Modifier.fillMaxWidth(0.75f)
+            )
+        },
         leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
         trailingIcon = {
             if (query.isNotEmpty()) {
-                IconButton(onClick = onClear) {
+                IconButton(onClick = {
+                    onClear()
+                    focusManager.clearFocus() // Clear dabane par keyboard hide ho jayega
+                }) {
                     Icon(Icons.Default.Clear, contentDescription = "Clear")
                 }
             }
         },
         shape = MaterialTheme.shapes.large,
         singleLine = true,
+        keyboardOptions = KeyboardOptions(
+            imeAction = ImeAction.Search
+        ),
+        keyboardActions = KeyboardActions(
+            onSearch = {
+                onSearch()
+                focusManager.clearFocus() // Search dabane par keyboard hide ho jayega
+            }
+        ),
         colors = OutlinedTextFieldDefaults.colors(
             focusedBorderColor = MaterialTheme.colorScheme.primary,
             focusedLabelColor = MaterialTheme.colorScheme.primary
@@ -510,11 +642,7 @@ fun ServiceSearchBar(
 }
 
 @Composable
-fun ServiceCategoriesRow(
-    categories: List<String>,
-    selectedCategory: String,
-    onCategorySelected: (String) -> Unit
-) {
+fun ServiceCategoriesRow(categories: List<String>,selectedCategory: String, onCategorySelected: (String) -> Unit) {
     LazyRow(
         modifier = Modifier
             .fillMaxWidth()
@@ -537,7 +665,7 @@ fun ServiceCategoriesRow(
                     {
                         Icon(
                             when (category.lowercase()) {
-                                "automotive" -> Icons.Default.Build
+                                "automotive" -> Icons.Default.CarRepair
                                 "beauty" -> Icons.Default.Face
                                 "repair" -> Icons.Default.Handyman
                                 "cleaning" -> Icons.Default.CleaningServices
@@ -556,11 +684,7 @@ fun ServiceCategoriesRow(
 }
 
 @Composable
-fun ServiceShopCard(
-    shop: Shop,
-    userLocation: android.location.Location?,
-    onClick: () -> Unit
-) {
+fun ServiceShopCard(shop: Shop,userLocation: android.location.Location?,onClick: () -> Unit) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -574,36 +698,28 @@ fun ServiceShopCard(
                 .fillMaxWidth()
                 .padding(16.dp)
         ) {
-            // Shop Header Row
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Shop Image
                 Box(
                     modifier = Modifier
                         .size(60.dp)
                         .clip(MaterialTheme.shapes.small)
                         .background(MaterialTheme.colorScheme.primaryContainer)
                 ) {
-                    if (shop.hasLogo && shop.logo.isNotBlank()) {
-                        // Load actual logo
-                        // Image(painter = rememberAsyncImagePainter(shop.logo), ...)
-                    } else {
-                        Box(contentAlignment = Alignment.Center) {
-                            Icon(
-                                Icons.Default.Build,
-                                contentDescription = null,
-                                modifier = Modifier.size(30.dp),
-                                tint = MaterialTheme.colorScheme.primary
-                            )
-                        }
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            Icons.Default.Build,
+                            contentDescription = null,
+                            modifier = Modifier.size(30.dp),
+                            tint = MaterialTheme.colorScheme.primary
+                        )
                     }
                 }
 
                 Spacer(modifier = Modifier.width(12.dp))
 
-                // Shop Name and Rating
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = shop.shopName,
@@ -611,9 +727,7 @@ fun ServiceShopCard(
                         fontWeight = FontWeight.Bold
                     )
 
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(
                             Icons.Default.Star,
                             contentDescription = null,
@@ -634,12 +748,8 @@ fun ServiceShopCard(
 
                         Spacer(modifier = Modifier.width(8.dp))
 
-                        // Open/Closed Status
                         Surface(
-                            color = if (shop.open)
-                                Color(0xFF4CAF50).copy(alpha = 0.1f)
-                            else
-                                Color(0xFFE53935).copy(alpha = 0.1f),
+                            color = if (shop.open) Color(0xFF4CAF50).copy(alpha = 0.1f) else Color(0xFFE53935).copy(alpha = 0.1f),
                             shape = MaterialTheme.shapes.small
                         ) {
                             Text(
@@ -655,7 +765,6 @@ fun ServiceShopCard(
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Shop Category
             Text(
                 text = shop.category,
                 fontSize = 13.sp,
@@ -665,15 +774,12 @@ fun ServiceShopCard(
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Location and Distance
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(
                         Icons.Default.LocationOn,
                         contentDescription = null,
@@ -709,10 +815,7 @@ fun ServiceShopCard(
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Services Tags (Sample)
-            LazyRow(
-                horizontalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 items(listOf("Repair", "Maintenance", "Emergency")) { tag ->
                     Surface(
                         color = MaterialTheme.colorScheme.surfaceVariant,
@@ -729,62 +832,34 @@ fun ServiceShopCard(
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Book Button
             Button(
                 onClick = onClick,
                 modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.primary
-                ),
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
                 shape = MaterialTheme.shapes.small
             ) {
-                Text(
-                    text = "Book Service",
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.Medium
-                )
+                Text(text = "Book Service", fontSize = 13.sp, fontWeight = FontWeight.Medium)
             }
         }
     }
 }
 
 @Composable
-fun ErrorCard(
-    message: String?,
-    onRetry: (() -> Unit)? = null
-) {
+fun ErrorCard(message: String?, onRetry: (() -> Unit)? = null) {
     Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(16.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.errorContainer
-        )
+        modifier = Modifier.fillMaxWidth().padding(16.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)
     ) {
         Column(
             modifier = Modifier.padding(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Icon(
-                Icons.Default.Error,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.error,
-                modifier = Modifier.size(48.dp)
-            )
+            Icon(Icons.Default.Error, contentDescription = null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(48.dp))
             Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = message ?: "Something went wrong",
-                color = MaterialTheme.colorScheme.onErrorContainer,
-                textAlign = androidx.compose.ui.text.style.TextAlign.Center
-            )
+            Text(text = message ?: "Something went wrong", color = MaterialTheme.colorScheme.onErrorContainer, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
             if (onRetry != null) {
                 Spacer(modifier = Modifier.height(12.dp))
-                Button(
-                    onClick = onRetry,
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.error
-                    )
-                ) {
+                Button(onClick = onRetry, colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)) {
                     Icon(Icons.Default.Refresh, contentDescription = null)
                     Spacer(modifier = Modifier.width(8.dp))
                     Text("Retry")
@@ -794,59 +869,26 @@ fun ErrorCard(
     }
 }
 
-/**
- * Card shown when no shops are available in user's area
- */
 @Composable
-fun NoShopsAvailableCard(
-    selectedCategory: String,
-    hasLocation: Boolean,
-    onRefresh: () -> Unit
-) {
+fun NoShopsAvailableCard(selectedCategory: String, hasLocation: Boolean, onRefresh: () -> Unit) {
     Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(16.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant
-        )
+        modifier = Modifier.fillMaxWidth().padding(16.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Icon(
-                Icons.Default.SearchOff,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(64.dp)
-            )
+        Column(modifier = Modifier.fillMaxWidth().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            Icon(Icons.Default.SearchOff, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(64.dp))
             Spacer(modifier = Modifier.height(16.dp))
             Text(
-                text = if (selectedCategory == "All")
-                    "No Services Available"
-                else
-                    "No $selectedCategory Services",
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                text = if (selectedCategory == "All") "No Services Available" else "No $selectedCategory Services",
+                fontSize = 18.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = if (hasLocation)
-                    "Sorry, there are no service providers available in your area right now. Please try again later or check nearby areas."
-                else
-                    "We couldn't determine your location. Please enable location to find services near you.",
-                fontSize = 14.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                text = if (hasLocation) "Sorry, there are no service providers available in your area right now. Please try again later or check nearby areas." else "We couldn't determine your location. Please enable location to find services near you.",
+                fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f), textAlign = androidx.compose.ui.text.style.TextAlign.Center
             )
             Spacer(modifier = Modifier.height(16.dp))
-            OutlinedButton(
-                onClick = onRefresh
-            ) {
+            OutlinedButton(onClick = onRefresh) {
                 Icon(Icons.Default.Refresh, contentDescription = null)
                 Spacer(modifier = Modifier.width(8.dp))
                 Text("Refresh")
@@ -855,54 +897,20 @@ fun NoShopsAvailableCard(
     }
 }
 
-/**
- * Card shown when location is required but not available
- */
 @Composable
-fun LocationRequiredCard(
-    onEnableLocation: () -> Unit
-) {
+fun LocationRequiredCard(onEnableLocation: () -> Unit) {
     Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(16.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.primaryContainer
-        )
+        modifier = Modifier.fillMaxWidth().padding(16.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Icon(
-                Icons.Default.LocationOff,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(64.dp)
-            )
+        Column(modifier = Modifier.fillMaxWidth().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            Icon(Icons.Default.LocationOff, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(64.dp))
             Spacer(modifier = Modifier.height(16.dp))
-            Text(
-                text = "Location Required",
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onPrimaryContainer
-            )
+            Text(text = "Location Required", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimaryContainer)
             Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = "Please enable location services to discover service providers near you.",
-                fontSize = 14.sp,
-                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f),
-                textAlign = androidx.compose.ui.text.style.TextAlign.Center
-            )
+            Text(text = "Please enable location services to discover service providers near you.", fontSize = 14.sp, color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
             Spacer(modifier = Modifier.height(16.dp))
-            Button(
-                onClick = onEnableLocation,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.primary
-                )
-            ) {
+            Button(onClick = onEnableLocation, colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)) {
                 Icon(Icons.Default.MyLocation, contentDescription = null)
                 Spacer(modifier = Modifier.width(8.dp))
                 Text("Enable Location")
@@ -912,24 +920,48 @@ fun LocationRequiredCard(
 }
 
 @Composable
-fun SectionHeader(
-    title: String,
-    onViewAllClick: () -> Unit
-) {
+fun SectionHeader(title: String, onViewAllClick: () -> Unit) {
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+        horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(
-            text = title,
-            fontSize = 16.sp,
-            fontWeight = FontWeight.Bold
-        )
-        TextButton(onClick = onViewAllClick) {
-            Text("View All", fontSize = 13.sp)
+        Text(text = title, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+        TextButton(onClick = onViewAllClick) { Text("View All", fontSize = 13.sp) }
+    }
+}
+
+@Composable
+fun SearchLoading() {
+    Box(modifier = Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+}
+
+@Composable
+fun EmptySearchResults(query: String) {
+    Column(modifier = Modifier.fillMaxWidth().padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        Icon(Icons.Default.SearchOff, contentDescription = null, modifier = Modifier.size(64.dp), tint = Color.LightGray)
+        Spacer(modifier = Modifier.height(16.dp))
+        Text("No results found for \"$query\"", fontWeight = FontWeight.Medium)
+    }
+}
+
+@Composable
+fun SearchError(message: String?, onRetry: () -> Unit) {
+    Column(modifier = Modifier.fillMaxWidth().padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        Text("Error: $message", color = MaterialTheme.colorScheme.error)
+        Button(onClick = onRetry) { Text("Retry") }
+    }
+}
+
+@Composable
+fun ServiceSearchResultCard(service: com.saurabh.onecornersystem.data.model.ShopItem, onBookClick: () -> Unit) {
+    Card(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)) {
+        Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(service.name, fontWeight = FontWeight.Bold)
+                Text(service.category, fontSize = 12.sp, color = Color.Gray)
+                Text("₹${service.price}", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+            }
+            Button(onClick = onBookClick) { Text("Book") }
         }
     }
 }
