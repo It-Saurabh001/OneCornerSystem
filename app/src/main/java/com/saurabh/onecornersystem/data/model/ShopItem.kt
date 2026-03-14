@@ -15,7 +15,7 @@ data class ShopItem(
     val price: Double = 0.0,
     val discountedPrice: Double = 0.0,
     val images: List<String> = emptyList(),
-    val isAvailable: Boolean = true,
+    val available: Boolean = true,
 //    @get:PropertyName("isActive") @set:PropertyName("isActive")
     var active: Boolean = true,
 

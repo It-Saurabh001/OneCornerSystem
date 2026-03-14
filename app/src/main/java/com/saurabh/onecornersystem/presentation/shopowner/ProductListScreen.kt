@@ -80,7 +80,7 @@ fun ProductListScreen(
                                     navController.navigate("edit_product/${product.itemId}")
                                 },
                                 onToggleAvailability = {
-                                    viewModel.toggleItemAvailability(product.itemId, !product.isAvailable)
+                                    viewModel.toggleItemAvailability(product.itemId, !product.available)
                                 }
                             )
                         }
@@ -119,7 +119,7 @@ fun ProductCard(
         modifier = Modifier.fillMaxWidth(),
         elevation = CardDefaults.cardElevation(2.dp),
         colors = CardDefaults.cardColors(
-            containerColor = if (product.isAvailable)
+            containerColor = if (product.available)
                 MaterialTheme.colorScheme.surface
             else
                 MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
@@ -186,10 +186,10 @@ fun ProductCard(
                 // Availability Toggle
                 IconButton(onClick = onToggleAvailability) {
                     Icon(
-                        if (product.isAvailable) Icons.Default.Visibility
+                        if (product.available) Icons.Default.Visibility
                         else Icons.Default.VisibilityOff,
-                        contentDescription = if (product.isAvailable) "Available" else "Unavailable",
-                        tint = if (product.isAvailable) Color.Green else Color.Gray
+                        contentDescription = if (product.available) "Available" else "Unavailable",
+                        tint = if (product.available) Color.Green else Color.Gray
                     )
                 }
 
@@ -205,7 +205,7 @@ fun ProductCard(
         }
 
         // Low Stock Warning
-        if (product.stockQuantity < 5 && product.stockQuantity > 0) {
+        if (product.stockQuantity in 1..<5) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()

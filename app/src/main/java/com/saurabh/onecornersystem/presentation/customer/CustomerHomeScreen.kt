@@ -73,6 +73,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -229,18 +230,15 @@ fun CustomerHomeScreen(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val drawerState = rememberDrawerState(DrawerValue.Closed)
-    val lifecycleOwner = LocalLifecycleOwner.current
 
     var searchQuery by remember { mutableStateOf("") }
     var selectedCategory by remember { mutableStateOf("All") }
-    var selectedShopType by remember { mutableStateOf<ShopType?>(ShopType.SERVICE) }
     var isSearching by remember { mutableStateOf(false) }
 
     val userLocation by viewModel.userLocation.collectAsState()
     var isLocationLoading by remember { mutableStateOf(false) }
 
     val nearbyServiceItemsState by viewModel.nearbyServiceItemsState.collectAsState()
-    val nearbyShopsState by viewModel.nearbyServiceShopsState.collectAsState()
     val serviceCategoriesState by viewModel.serviceCategoriesState.collectAsState()
     val searchServicesState by viewModel.searchServicesState.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
@@ -267,6 +265,7 @@ fun CustomerHomeScreen(
 
     var triggerLocationRefresh: () -> Unit = {}
 
+    Log.d("TAG", "CustomerHomeScreen: service items $nearbyServiceItemsState")
     val locationPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestMultiplePermissions()
     ) { permissions ->
@@ -304,7 +303,7 @@ fun CustomerHomeScreen(
                         viewModel.updateUserLocation(loc)
 
                         loc?.let { location ->
-                            viewModel.getNearbyServiceShops(location.latitude, location.longitude)
+                            viewModel.getNearbyServiceItems(location.latitude, location.longitude)
                         }
                     }
                 }
@@ -344,7 +343,9 @@ fun CustomerHomeScreen(
         drawerState = drawerState,
         drawerContent = {
             ModalDrawerSheet(
-                modifier = Modifier.fillMaxHeight().fillMaxWidth(0.65f)
+                modifier = Modifier
+                    .fillMaxHeight()
+                    .fillMaxWidth(0.65f)
             ) {
                 AppNavigationDrawer(
                     user = currentUser,
@@ -518,7 +519,9 @@ fun CustomerHomeScreen(
                             is Resource.Loading -> {
                                 item {
                                     Box(
-                                        modifier = Modifier.fillMaxWidth().height(200.dp),
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(200.dp),
                                         contentAlignment = Alignment.Center
                                     ) {
                                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -578,7 +581,6 @@ fun CustomerHomeScreen(
                                     }
                                 }
                             }
-                            else -> {}
                         }
                         item { Spacer(modifier = Modifier.height(16.dp)) }
                     }
@@ -847,7 +849,9 @@ fun ServiceShopCard(shop: Shop,userLocation: android.location.Location?,onClick:
 @Composable
 fun ErrorCard(message: String?, onRetry: (() -> Unit)? = null) {
     Card(
-        modifier = Modifier.fillMaxWidth().padding(16.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(16.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)
     ) {
         Column(
@@ -872,10 +876,14 @@ fun ErrorCard(message: String?, onRetry: (() -> Unit)? = null) {
 @Composable
 fun NoShopsAvailableCard(selectedCategory: String, hasLocation: Boolean, onRefresh: () -> Unit) {
     Card(
-        modifier = Modifier.fillMaxWidth().padding(16.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(16.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
     ) {
-        Column(modifier = Modifier.fillMaxWidth().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        Column(modifier = Modifier
+            .fillMaxWidth()
+            .padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Icon(Icons.Default.SearchOff, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(64.dp))
             Spacer(modifier = Modifier.height(16.dp))
             Text(
@@ -900,10 +908,14 @@ fun NoShopsAvailableCard(selectedCategory: String, hasLocation: Boolean, onRefre
 @Composable
 fun LocationRequiredCard(onEnableLocation: () -> Unit) {
     Card(
-        modifier = Modifier.fillMaxWidth().padding(16.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(16.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
     ) {
-        Column(modifier = Modifier.fillMaxWidth().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        Column(modifier = Modifier
+            .fillMaxWidth()
+            .padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Icon(Icons.Default.LocationOff, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(64.dp))
             Spacer(modifier = Modifier.height(16.dp))
             Text(text = "Location Required", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimaryContainer)
@@ -922,7 +934,9 @@ fun LocationRequiredCard(onEnableLocation: () -> Unit) {
 @Composable
 fun SectionHeader(title: String, onViewAllClick: () -> Unit) {
     Row(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp),
         horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically
     ) {
         Text(text = title, fontSize = 16.sp, fontWeight = FontWeight.Bold)
@@ -932,12 +946,16 @@ fun SectionHeader(title: String, onViewAllClick: () -> Unit) {
 
 @Composable
 fun SearchLoading() {
-    Box(modifier = Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+    Box(modifier = Modifier
+        .fillMaxWidth()
+        .padding(32.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
 }
 
 @Composable
 fun EmptySearchResults(query: String) {
-    Column(modifier = Modifier.fillMaxWidth().padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+    Column(modifier = Modifier
+        .fillMaxWidth()
+        .padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally) {
         Icon(Icons.Default.SearchOff, contentDescription = null, modifier = Modifier.size(64.dp), tint = Color.LightGray)
         Spacer(modifier = Modifier.height(16.dp))
         Text("No results found for \"$query\"", fontWeight = FontWeight.Medium)
@@ -946,7 +964,9 @@ fun EmptySearchResults(query: String) {
 
 @Composable
 fun SearchError(message: String?, onRetry: () -> Unit) {
-    Column(modifier = Modifier.fillMaxWidth().padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+    Column(modifier = Modifier
+        .fillMaxWidth()
+        .padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally) {
         Text("Error: $message", color = MaterialTheme.colorScheme.error)
         Button(onClick = onRetry) { Text("Retry") }
     }
@@ -954,7 +974,9 @@ fun SearchError(message: String?, onRetry: () -> Unit) {
 
 @Composable
 fun ServiceSearchResultCard(service: com.saurabh.onecornersystem.data.model.ShopItem, onBookClick: () -> Unit) {
-    Card(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)) {
+    Card(modifier = Modifier
+        .fillMaxWidth()
+        .padding(horizontal = 16.dp, vertical = 4.dp)) {
         Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(service.name, fontWeight = FontWeight.Bold)

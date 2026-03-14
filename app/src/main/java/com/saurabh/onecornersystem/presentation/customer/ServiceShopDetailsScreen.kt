@@ -610,11 +610,11 @@ fun ServiceCard(
                 colors = ButtonDefaults.buttonColors(
                     containerColor = MaterialTheme.colorScheme.primary
                 ),
-                enabled = service.isAvailable,
+                enabled = service.available,
                 shape = RoundedCornerShape(8.dp)
             ) {
                 Text(
-                    text = if (service.isAvailable) "Book Now" else "Currently Unavailable",
+                    text = if (service.available) "Book Now" else "Currently Unavailable",
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Medium
                 )

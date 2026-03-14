@@ -128,8 +128,8 @@ fun ServiceListScreen(
                                     navController.navigate("service_details/${service.itemId}")
                                 },
                                 onToggleAvailability = {
-                                    Log.d("ServiceListScreen", "Availability toggled for service: ${service.itemId}, new value: ${!service.isAvailable}")
-                                    viewModel.toggleItemAvailability(service.itemId, !service.isAvailable)
+                                    Log.d("ServiceListScreen", "Availability toggled for service: ${service.itemId}, new value: ${!service.available}")
+                                    viewModel.toggleItemAvailability(service.itemId, !service.available)
                                 }
                             )
                         }
@@ -171,12 +171,12 @@ fun ServiceCard(
     onViewDetails: () -> Unit,
     onToggleAvailability: () -> Unit
 ) {
-    Log.d("ServiceCard", "Rendered - id: ${service.itemId}, name: ${service.name}, available: ${service.isAvailable}")
+    Log.d("ServiceCard", "Rendered - id: ${service.itemId}, name: ${service.name}, available: ${service.available}")
     Card(
         modifier = Modifier.fillMaxWidth(),
         elevation = CardDefaults.cardElevation(2.dp),
         colors = CardDefaults.cardColors(
-            containerColor = if (service.isAvailable)
+            containerColor = if (service.available)
                 MaterialTheme.colorScheme.surface
             else
                 MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
@@ -230,10 +230,10 @@ fun ServiceCard(
                 // Availability Toggle
                 IconButton(onClick = onToggleAvailability) {
                     Icon(
-                        if (service.isAvailable) Icons.Default.Visibility
+                        if (service.available) Icons.Default.Visibility
                         else Icons.Default.VisibilityOff,
-                        contentDescription = if (service.isAvailable) "Available" else "Unavailable",
-                        tint = if (service.isAvailable) Color.Green else Color.Gray
+                        contentDescription = if (service.available) "Available" else "Unavailable",
+                        tint = if (service.available) Color.Green else Color.Gray
                     )
                 }
             }

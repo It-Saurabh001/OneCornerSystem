@@ -149,16 +149,16 @@ fun ServiceSearchResultCard(
 
                 // Availability Badge
                 Surface(
-                    color = if (service.isAvailable)
+                    color = if (service.available)
                         Color(0xFF4CAF50).copy(alpha = 0.1f)
                     else
                         Color(0xFFF44336).copy(alpha = 0.1f),
                     shape = RoundedCornerShape(4.dp)
                 ) {
                     Text(
-                        text = if (service.isAvailable) "Available" else "Unavailable",
+                        text = if (service.available) "Available" else "Unavailable",
                         fontSize = 10.sp,
-                        color = if (service.isAvailable) Color(0xFF4CAF50) else Color(0xFFF44336),
+                        color = if (service.available) Color(0xFF4CAF50) else Color(0xFFF44336),
                         modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                     )
                 }

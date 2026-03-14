@@ -263,77 +263,44 @@ class CustomerShopViewModel @Inject constructor(
         }
     }
 
-
     fun getNearbyServiceItems(latitude: Double, longitude: Double, radiusInKm: Double = 10.0) {
-        Log.d(TAG, "========== getNearbyServiceItems ==========")
-        Log.d(TAG, "📍 Location: ($latitude, $longitude), Radius: $radiusInKm km")
-
+        Log.d(TAG, "========== getNearbyServiceItems (Targeted Fetch) ==========")
         viewModelScope.launch {
             _nearbyServiceItemsState.value = Resource.Loading
 
-            try {
-                // Step 1: ShopRepository se paas ki dukaanein fetch karo
-                Log.d(TAG, "Fetching nearby service shops first...")
-                shopRepository.getNearbyShopsByType(latitude, longitude, radiusInKm, ShopType.SERVICE)
-                    .collect { shopResult ->
-                        when (shopResult) {
-                            is Resource.Loading -> {
-                                Log.d(TAG, "Loading nearby shops...")
-                                _nearbyServiceItemsState.value = Resource.Loading
-                            }
-                            is Resource.Error -> {
-                                Log.e(TAG, "Error fetching nearby shops: ${shopResult.message}")
-                                _nearbyServiceItemsState.value = Resource.Error(shopResult.message ?: "Failed to fetch nearby shops")
-                            }
-                            is Resource.Success -> {
-                                val nearbyShops = shopResult.data
+            shopRepository.getNearbyShopsByType(latitude, longitude, radiusInKm, ShopType.SERVICE)
+                .collect { shopResult ->
+                    if (shopResult is Resource.Success) {
+                        val nearbyShops = shopResult.data
+                        if (nearbyShops.isEmpty()) {
+                            _nearbyServiceItemsState.value = Resource.Success(emptyList())
+                            return@collect
+                        }
 
-                                // Agar aas-paas koi dukaan nahi hai, toh empty list bhej do
-                                if (nearbyShops.isEmpty()) {
-                                    Log.d(TAG, "ℹNo nearby shops found in $radiusInKm km radius.")
-                                    _nearbyServiceItemsState.value = Resource.Success(emptyList())
-                                    return@collect
+                        val nearbyShopIds = nearbyShops.map { it.shopId }
+                        val allNearbyItems = mutableListOf<ShopItem>()
+                        var processedShops = 0
+
+                        // ✅ SOLUTION: Har nearby shop ke liye uski specific services uthao
+                        nearbyShopIds.forEach { shopId ->
+                            shopItemRepository.getItemsByShopAndType(shopId, ShopType.SERVICE).collect { itemResult ->
+                                if (itemResult is Resource.Success) {
+                                    allNearbyItems.addAll(itemResult.data)
+                                    Log.d(TAG, "➕ Found ${itemResult.data.size} items for shop: $shopId")
                                 }
 
-                                // Step 2: Un dukaano ki ID nikal lo (e.g., "PnzoDEFZUXCS6cSbFVUZ")
-                                val nearbyShopIds = nearbyShops.map { it.shopId }.toSet()
-                                Log.d(TAG, "Found ${nearbyShopIds.size} nearby shops. Fetching their services now...")
-
-                                // Step 3: ShopItemRepository se saari services fetch karo
-                                shopItemRepository.searchServices("", ShopType.SERVICE)
-                                    .collect { itemResult ->
-                                        when (itemResult) {
-                                            is Resource.Loading -> {
-                                                Log.d(TAG, "Loading services from repository...")
-                                            }
-                                            is Resource.Error -> {
-                                                Log.e(TAG, "Error fetching services: ${itemResult.message}")
-                                                _nearbyServiceItemsState.value = Resource.Error(itemResult.message ?: "Failed to fetch services")
-                                            }
-                                            is Resource.Success -> {
-                                                val allItems = itemResult.data
-
-                                                // Step 4: KOTLIN MAGIC - Sirf un services ko rakho jo nearby dukaano ki hain
-                                                val nearbyItems = allItems.filter { it.shopId in nearbyShopIds }
-
-                                                Log.d(TAG, "Success! Filtered ${nearbyItems.size} services for the home screen.")
-                                                _nearbyServiceItemsState.value = Resource.Success(nearbyItems)
-                                            }
-                                            else -> {
-                                                Log.w(TAG, "Unexpected state in itemResult: $itemResult")
-                                            }
-                                        }
-                                    }
-                            }
-                            else -> {
-                                Log.w(TAG, "Unexpected state in shopResult: $shopResult")
+                                processedShops++
+                                // Jab saari shops ka data aa jaye, tab UI update karo
+                                if (processedShops == nearbyShopIds.size) {
+                                    Log.d(TAG, "✅ Total Nearby Services Filtered: ${allNearbyItems.size}")
+                                    _nearbyServiceItemsState.value = Resource.Success(allNearbyItems)
+                                }
                             }
                         }
+                    } else if (shopResult is Resource.Error) {
+                        _nearbyServiceItemsState.value = Resource.Error(shopResult.message ?: "Error")
                     }
-            } catch (e: Exception) {
-                Log.e(TAG, "Exception in getNearbyServiceItems", e)
-                _nearbyServiceItemsState.value = Resource.Error(e.message ?: "Unknown error occurred")
-            }
+                }
         }
     }
     fun getServiceItemDetails(itemId: String) {

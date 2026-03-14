@@ -109,15 +109,15 @@ fun NearbyShopItemCard(item: ShopItem, onClick: () -> Unit) {
                 }
                 // Availability Badge
                 Surface(
-                    color = if (item.isAvailable) Color(0xFFE3F2FD) else Color(0xFFFFEBEE),
+                    color = if (item.available) Color(0xFFE3F2FD) else Color(0xFFFFEBEE),
                     shape = MaterialTheme.shapes.extraSmall
                 ) {
                     Text(
-                        text = if (item.isAvailable) "● AVAILABLE" else "○ UNAVAILABLE",
+                        text = if (item.available) "● AVAILABLE" else "○ UNAVAILABLE",
                         modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
                         fontSize = 10.sp,
                         fontWeight = FontWeight.Bold,
-                        color = if (item.isAvailable) Color(0xFF1976D2) else Color(0xFFD32F2F)
+                        color = if (item.available) Color(0xFF1976D2) else Color(0xFFD32F2F)
                     )
                 }
             }

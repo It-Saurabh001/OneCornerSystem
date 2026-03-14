@@ -111,7 +111,7 @@ class ShopItemViewModel @Inject constructor(
                 itemType = ShopType.PRODUCT,
                 stockQuantity = stockQuantity,
                 unit = unit,
-                isAvailable = true,
+                available = true,
                 active = true
             )
 
@@ -184,7 +184,7 @@ class ShopItemViewModel @Inject constructor(
                 duration = duration,
                 homeService = homeService,
                 requiresAppointment = requiresAppointment,
-                isAvailable = true,
+                available = true,
                 active = true
             )
 
