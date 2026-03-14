@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.Intent
 import android.location.Location
 import android.provider.Settings
+import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -26,65 +27,25 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Logout
-import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.Bookmark
-import androidx.compose.material.icons.filled.ChevronRight
-import androidx.compose.material.icons.filled.DarkMode
-import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.Help
-import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.KeyboardArrowRight
-import androidx.compose.material.icons.filled.List
-import androidx.compose.material.icons.filled.LocationOn
-import androidx.compose.material.icons.filled.Logout
-import androidx.compose.material.icons.filled.MyLocation
-import androidx.compose.material.icons.filled.Notifications
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.ShoppingCart
-import androidx.compose.material.icons.filled.Store
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Divider
-import androidx.compose.material3.DividerDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+//import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleOwner
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.saurabh.onecornersystem.data.model.Shop
 import com.saurabh.onecornersystem.data.model.ShopType
 import com.saurabh.onecornersystem.data.model.User
@@ -109,7 +70,6 @@ fun ProfileScreen(
     // Check if user is customer (not shop_owner)
     val isCustomer = user.role == "customer"
 
-    val scrollState = rememberScrollState()
     Scaffold(
         bottomBar = {
             // Show bottom navigation only for customers
@@ -152,9 +112,6 @@ fun ProfileScreen(
         ) {
 
             ProfileTopBar(onBackClick = onBackClick)
-
-
-
 
             // Top Header with Gradient
             Box(
@@ -227,18 +184,14 @@ fun ProfileScreen(
                 ) {
                     // Email
                     UserDetailItem("Email", user.email)
-                    HorizontalDivider(Modifier, DividerDefaults.Thickness, DividerDefaults.color)
+                    HorizontalDivider()
 
                     // Phone
                     UserDetailItem("📱 Phone", user.phone)
-                    HorizontalDivider(Modifier, DividerDefaults.Thickness, DividerDefaults.color)
+                    HorizontalDivider()
 
                     // Role
                     UserDetailItem("👤 Role", user.role.uppercase().replace("_", " "))
-//                    HorizontalDivider(Modifier, DividerDefaults.Thickness, DividerDefaults.color)
-
-                    // User ID
-//                    UserDetailItem("User ID", user.userId)
                 }
             }
 
@@ -426,21 +379,9 @@ fun ProfileScreen(
                     horizontalArrangement = Arrangement.SpaceEvenly
                 ) {
                     StatItem("24", "Orders")
-                    HorizontalDivider(
-                        modifier = Modifier
-                            .height(40.dp)
-                            .width(1.dp),
-                        thickness = DividerDefaults.Thickness,
-                        color = DividerDefaults.color
-                    )
+                    VerticalDivider(modifier = Modifier.height(40.dp))
                     StatItem("₹1.2L", "Total Spent")
-                    HorizontalDivider(
-                        modifier = Modifier
-                            .height(40.dp)
-                            .width(1.dp),
-                        thickness = DividerDefaults.Thickness,
-                        color = DividerDefaults.color
-                    )
+                    VerticalDivider(modifier = Modifier.height(40.dp))
                     StatItem("4.8", "Rating")
                 }
             }
@@ -525,7 +466,6 @@ fun ProfileTopBar(onBackClick: () -> Unit) {
                 .fillMaxWidth()
                 .background(Color(0xFF4A90E2))
                 .padding(6.dp),
-//            horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
             IconButton(onClick = onBackClick) {
@@ -572,45 +512,12 @@ fun ProfileScreenPreview() {
 fun LocationSectionCard() {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val lifecycleOwner = LocalLifecycleOwner.current
 
     var currentLocation by remember { mutableStateOf<Location?>(null) }
     var isLoadingLocation by remember { mutableStateOf(false) }
     var showLocationSettingsDialog by remember { mutableStateOf(false) }
     var locationError by remember { mutableStateOf<String?>(null) }
-
-    // Location permission launcher
-    val locationPermissionLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestMultiplePermissions()
-    ) { permissions ->
-        val granted = permissions[Manifest.permission.ACCESS_FINE_LOCATION] == true ||
-                     permissions[Manifest.permission.ACCESS_COARSE_LOCATION] == true
-        if (granted) {
-            scope.launch {
-                if (LocationUtils.isLocationEnabled(context)) {
-                    isLoadingLocation = true
-                    locationError = null
-                    currentLocation = LocationUtils.getFreshCurrentLocation(context)
-                    if (currentLocation == null) {
-                        locationError = "Could not fetch location"
-                    }
-                    isLoadingLocation = false
-                } else {
-                    showLocationSettingsDialog = true
-                }
-            }
-        } else {
-            locationError = "Location permission denied"
-        }
-    }
-
-    // Auto-fetch location on first load
-    LaunchedEffect(Unit) {
-        if (LocationUtils.hasLocationPermission(context) && LocationUtils.isLocationEnabled(context)) {
-            isLoadingLocation = true
-            currentLocation = LocationUtils.getFreshCurrentLocation(context)
-            isLoadingLocation = false
-        }
-    }
 
     // Function to request location
     fun requestLocation() {
@@ -619,6 +526,7 @@ fun LocationSectionCard() {
                 scope.launch {
                     isLoadingLocation = true
                     locationError = null
+                    Log.d("ProfileScreen", "Fetching fresh location...")
                     currentLocation = LocationUtils.getFreshCurrentLocation(context)
                     if (currentLocation == null) {
                         locationError = "Could not fetch location. Try again."
@@ -628,13 +536,45 @@ fun LocationSectionCard() {
             } else {
                 showLocationSettingsDialog = true
             }
+        }
+    }
+
+    // Lifecycle observer to detect return from settings
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                Log.d("ProfileScreen", "Profile resumed - checking location")
+                if (LocationUtils.hasLocationPermission(context) && LocationUtils.isLocationEnabled(context)) {
+                    if (showLocationSettingsDialog || (currentLocation == null && !isLoadingLocation)) {
+                        showLocationSettingsDialog = false
+                        requestLocation()
+                    }
+                }
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
+
+    // Location permission launcher
+    val locationPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        val granted = permissions[Manifest.permission.ACCESS_FINE_LOCATION] == true ||
+                     permissions[Manifest.permission.ACCESS_COARSE_LOCATION] == true
+        if (granted) {
+            requestLocation()
         } else {
-            locationPermissionLauncher.launch(
-                arrayOf(
-                    Manifest.permission.ACCESS_FINE_LOCATION,
-                    Manifest.permission.ACCESS_COARSE_LOCATION
-                )
-            )
+            locationError = "Location permission denied"
+        }
+    }
+
+    // Auto-fetch location on first load
+    LaunchedEffect(Unit) {
+        if (LocationUtils.hasLocationPermission(context) && LocationUtils.isLocationEnabled(context)) {
+            requestLocation()
         }
     }
 
@@ -859,6 +799,3 @@ fun LocationSectionCard() {
         }
     }
 }
-
-
-

@@ -616,6 +616,19 @@ fun AppNavGraph(
                 navController = navController
             )
         }
+        composable(
+            route = Screen.ServiceDetailsCustomer.route,
+            arguments = listOf(navArgument("itemId") { type = NavType.StringType })
+        ) {
+            backstaskEntry ->
+            val itemId = backstaskEntry.arguments?.getString("itemId") ?: ""
+            Log.d("NavGraph_ServiceDetailsCustomer", "ServiceDetailsCustomer Screen displayed - itemId")
+            ServiceDetailScreenCustomer(
+                serviceId = itemId,
+                navController = navController,
+                viewModel = customerShopViewModel
+            )
+        }
 
         // ============= COMMON SCREENS =============
         composable(Screen.Cart.route) {
@@ -779,6 +792,10 @@ sealed class Screen(val route: String) {
     }
     object EditProduct : Screen("edit_product/{itemId}") {
         fun passItemId(itemId: String) = "edit_product/$itemId"
+    }
+
+    object ServiceDetailsCustomer : Screen("service_details_customer/{itemId}") {
+        fun passItemId(itemId: String) = "service_details_customer/$itemId"
     }
 
     // Services

@@ -1,5 +1,6 @@
 package com.saurabh.onecornersystem.presentation.customer.viewmodel
 
+import android.location.Location
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -42,6 +43,8 @@ class CustomerShopViewModel @Inject constructor(
     private val _nearbyServiceShopsState = MutableStateFlow<Resource<List<Shop>>>(Resource.Idle)
     val nearbyServiceShopsState: StateFlow<Resource<List<Shop>>> = _nearbyServiceShopsState.asStateFlow()
 
+    private val _serviceItemDetailsState = MutableStateFlow<Resource<ShopItem>>(Resource.Idle)
+    val serviceItemDetailsState: StateFlow<Resource<ShopItem>> = _serviceItemDetailsState.asStateFlow()
     // ============= FAVORITES STATES =============
 
     private val _favoriteShopsState = MutableStateFlow<Resource<List<Shop>>>(Resource.Idle)
@@ -78,6 +81,9 @@ class CustomerShopViewModel @Inject constructor(
     private val _serviceCategoriesState = MutableStateFlow<Resource<List<CategoryWithType>>>(Resource.Idle)
     val serviceCategoriesState: StateFlow<Resource<List<CategoryWithType>>> = _serviceCategoriesState.asStateFlow()
 
+    private val _nearbyServiceItemsState = MutableStateFlow<Resource<List<ShopItem>>>(Resource.Idle)
+    val nearbyServiceItemsState: StateFlow<Resource<List<ShopItem>>> = _nearbyServiceItemsState.asStateFlow()
+
     // ============= FILTER STATES =============
 
     private val _selectedShopType = MutableStateFlow<ShopType?>(null)
@@ -99,6 +105,16 @@ class CustomerShopViewModel @Inject constructor(
 
     private val _cancelBookingState = MutableStateFlow<Resource<Boolean>>(Resource.Idle)
     val cancelBookingState: StateFlow<Resource<Boolean>> = _cancelBookingState.asStateFlow()
+
+    private val _userLocation = MutableStateFlow<Location?>(null)
+    val userLocation = _userLocation.asStateFlow()
+
+    // Helper function location update karne ke liye
+    fun updateUserLocation(location: Location?) {
+        _userLocation.value = location
+    }
+
+
 
     // ============= INIT BLOCK - MOCK DATA COMMENTED OUT =============
 
@@ -247,6 +263,118 @@ class CustomerShopViewModel @Inject constructor(
         }
     }
 
+
+    fun getNearbyServiceItems(latitude: Double, longitude: Double, radiusInKm: Double = 10.0) {
+        Log.d(TAG, "========== getNearbyServiceItems ==========")
+        Log.d(TAG, "📍 Location: ($latitude, $longitude), Radius: $radiusInKm km")
+
+        viewModelScope.launch {
+            _nearbyServiceItemsState.value = Resource.Loading
+
+            try {
+                // Step 1: ShopRepository se paas ki dukaanein fetch karo
+                Log.d(TAG, "Fetching nearby service shops first...")
+                shopRepository.getNearbyShopsByType(latitude, longitude, radiusInKm, ShopType.SERVICE)
+                    .collect { shopResult ->
+                        when (shopResult) {
+                            is Resource.Loading -> {
+                                Log.d(TAG, "Loading nearby shops...")
+                                _nearbyServiceItemsState.value = Resource.Loading
+                            }
+                            is Resource.Error -> {
+                                Log.e(TAG, "Error fetching nearby shops: ${shopResult.message}")
+                                _nearbyServiceItemsState.value = Resource.Error(shopResult.message ?: "Failed to fetch nearby shops")
+                            }
+                            is Resource.Success -> {
+                                val nearbyShops = shopResult.data
+
+                                // Agar aas-paas koi dukaan nahi hai, toh empty list bhej do
+                                if (nearbyShops.isEmpty()) {
+                                    Log.d(TAG, "ℹNo nearby shops found in $radiusInKm km radius.")
+                                    _nearbyServiceItemsState.value = Resource.Success(emptyList())
+                                    return@collect
+                                }
+
+                                // Step 2: Un dukaano ki ID nikal lo (e.g., "PnzoDEFZUXCS6cSbFVUZ")
+                                val nearbyShopIds = nearbyShops.map { it.shopId }.toSet()
+                                Log.d(TAG, "Found ${nearbyShopIds.size} nearby shops. Fetching their services now...")
+
+                                // Step 3: ShopItemRepository se saari services fetch karo
+                                shopItemRepository.searchServices("", ShopType.SERVICE)
+                                    .collect { itemResult ->
+                                        when (itemResult) {
+                                            is Resource.Loading -> {
+                                                Log.d(TAG, "Loading services from repository...")
+                                            }
+                                            is Resource.Error -> {
+                                                Log.e(TAG, "Error fetching services: ${itemResult.message}")
+                                                _nearbyServiceItemsState.value = Resource.Error(itemResult.message ?: "Failed to fetch services")
+                                            }
+                                            is Resource.Success -> {
+                                                val allItems = itemResult.data
+
+                                                // Step 4: KOTLIN MAGIC - Sirf un services ko rakho jo nearby dukaano ki hain
+                                                val nearbyItems = allItems.filter { it.shopId in nearbyShopIds }
+
+                                                Log.d(TAG, "Success! Filtered ${nearbyItems.size} services for the home screen.")
+                                                _nearbyServiceItemsState.value = Resource.Success(nearbyItems)
+                                            }
+                                            else -> {
+                                                Log.w(TAG, "Unexpected state in itemResult: $itemResult")
+                                            }
+                                        }
+                                    }
+                            }
+                            else -> {
+                                Log.w(TAG, "Unexpected state in shopResult: $shopResult")
+                            }
+                        }
+                    }
+            } catch (e: Exception) {
+                Log.e(TAG, "Exception in getNearbyServiceItems", e)
+                _nearbyServiceItemsState.value = Resource.Error(e.message ?: "Unknown error occurred")
+            }
+        }
+    }
+    fun getServiceItemDetails(itemId: String) {
+        Log.d(TAG, "========== getServiceItemDetails ==========")
+        Log.d(TAG, "🆔 serviceId: $itemId")
+
+        // 1. Validation: Agar ID empty hai toh aage mat badho
+        if (itemId.isBlank()) {
+            Log.e(TAG, "serviceId is blank")
+            _serviceItemDetailsState.value = Resource.Error("Invalid Service ID")
+            return
+        }
+
+        viewModelScope.launch {
+            // 2. Reset State: Purana data saaf karo taaki user ko 'Loading' dikhe, pichla data nahi
+            _serviceItemDetailsState.value = Resource.Loading
+
+            try {
+                shopItemRepository.getItemById(itemId).collect { result ->
+                    when (result) {
+                        is Resource.Success -> {
+                            Log.d(TAG, "Service Details Loaded: ${result.data.name}")
+                        }
+                        is Resource.Error -> {
+                            Log.e(TAG, "Repo Error: ${result.message}")
+                        }
+                        is Resource.Loading -> {
+                            Log.d(TAG, "Loading service details from repository...")
+                        }
+                        else -> {}
+                    }
+                    _serviceItemDetailsState.value = result
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Exception in getServiceItemDetails: ${e.message}", e)
+                _serviceItemDetailsState.value = Resource.Error(e.message ?: "Failed to load details")
+            }
+        }
+    }
+
+
     fun getNearbyProductShops(latitude: Double, longitude: Double, radiusInKm: Double = 10.0) {
         Log.d(TAG, "getNearbyProductShops called - delegating to getNearbyShops")
         getNearbyShops(latitude, longitude, ShopType.PRODUCT, radiusInKm)
@@ -368,9 +496,10 @@ class CustomerShopViewModel @Inject constructor(
 
         if (query.isBlank()) {
             Log.e(TAG, "❌ Search query is blank")
-            _searchServicesState.value = Resource.Error("Search query cannot be empty")
+            _searchServicesState.value = Resource.Success(emptyList())
             return
         }
+
 
         viewModelScope.launch {
             Log.d(TAG, "⏳ Searching services...")
@@ -819,11 +948,19 @@ class CustomerShopViewModel @Inject constructor(
         _nearbyShopsState.value = Resource.Idle
         _nearbyProductShopsState.value = Resource.Idle
         _nearbyServiceShopsState.value = Resource.Idle
+        _nearbyServiceItemsState.value = Resource.Idle
     }
 
     fun resetSearchResults() {
         Log.d(TAG, "resetSearchResults called")
         _searchResultsState.value = Resource.Idle
+        _searchServicesState.value = Resource.Idle
+    }
+
+    fun resetShopDetails() {
+        Log.d(TAG, "resetShopDetails called")
+        _shopDetailsState.value = Resource.Idle
+        _serviceItemDetailsState.value = Resource.Idle
     }
 
     fun resetFavorites() {
@@ -838,11 +975,6 @@ class CustomerShopViewModel @Inject constructor(
         _shopCategoriesState.value = Resource.Idle
         _productCategoriesState.value = Resource.Idle
         _serviceCategoriesState.value = Resource.Idle
-    }
-
-    fun resetShopDetails() {
-        Log.d(TAG, "resetShopDetails called")
-        _shopDetailsState.value = Resource.Idle
     }
 
     fun resetShopRating() {

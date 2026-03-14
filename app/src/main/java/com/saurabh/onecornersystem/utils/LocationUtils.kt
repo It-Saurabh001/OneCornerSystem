@@ -2,14 +2,16 @@ package com.saurabh.onecornersystem.utils
 
 import android.Manifest
 import android.annotation.SuppressLint
+import android.app.Activity
 import android.content.Context
+import android.content.IntentSender
 import android.content.pm.PackageManager
 import android.location.Location
 import android.location.LocationManager
 import android.util.Log
 import androidx.core.content.ContextCompat
-import com.google.android.gms.location.LocationServices
-import com.google.android.gms.location.Priority
+import com.google.android.gms.common.api.ResolvableApiException
+import com.google.android.gms.location.*
 import com.google.android.gms.tasks.CancellationTokenSource
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.tasks.await
@@ -225,6 +227,39 @@ object LocationUtils {
         } catch (e: Exception) {
             Log.e(TAG, "Exception in getFreshCurrentLocation", e)
             null
+        }
+    }
+
+    /**
+     * Check if location settings are satisfied and provide the IntentSender for resolution
+     */
+    fun checkLocationSettings(
+        context: Context,
+        onResolutionRequired: (IntentSender) -> Unit,
+        onAlreadySatisfied: () -> Unit
+    ) {
+        val locationRequest = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 10000)
+            .build()
+
+        val builder = LocationSettingsRequest.Builder()
+            .addLocationRequest(locationRequest)
+            .setAlwaysShow(true)
+
+        val client: SettingsClient = LocationServices.getSettingsClient(context)
+        val task = client.checkLocationSettings(builder.build())
+
+        task.addOnSuccessListener {
+            onAlreadySatisfied()
+        }
+
+        task.addOnFailureListener { exception ->
+            if (exception is ResolvableApiException) {
+                try {
+                    onResolutionRequired(exception.resolution.intentSender)
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error with location resolution", e)
+                }
+            }
         }
     }
 
