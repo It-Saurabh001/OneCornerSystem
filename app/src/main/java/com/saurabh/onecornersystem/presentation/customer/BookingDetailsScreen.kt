@@ -654,7 +654,7 @@ private fun formatFullDate(dateStr: String): String {
     }
 }
 
-private fun formatTime(timeStr: String): String {
+private fun formatTime1(timeStr: String): String {
     return try {
         if (timeStr.contains(":")) {
             val parts = timeStr.split(":")

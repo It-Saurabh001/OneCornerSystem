@@ -2,49 +2,23 @@ package com.saurabh.onecornersystem.presentation.shopowner
 
 import android.util.Log
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Business
-import androidx.compose.material.icons.filled.Call
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Email
-import androidx.compose.material.icons.filled.LocationOn
-import androidx.compose.material.icons.filled.Schedule
-import androidx.compose.material.icons.filled.Star
-import androidx.compose.material.icons.filled.Store
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.VerticalDivider
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -53,6 +27,7 @@ import androidx.navigation.NavController
 import com.saurabh.onecornersystem.data.model.Shop
 import com.saurabh.onecornersystem.data.model.ShopType
 import com.saurabh.onecornersystem.presentation.components.Base64Image
+import androidx.compose.ui.tooling.preview.Preview
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -60,428 +35,206 @@ fun ShopDetailsScreen(
     shop: Shop,
     navController: NavController
 ) {
-    Log.d("ShopDetailsScreen", "Displayed - shopId: ${shop.shopId}, shopName: ${shop.shopName}")
+    // --- THEME COLORS ---
+    val amberOrange = Color(0xFFFF9100)
+    val deepBlack = Color(0xFF0A0A0A)
+    val glassWhite = Color.White.copy(alpha = 0.05f)
+    val outlineWhite = Color.White.copy(alpha = 0.1f)
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Shop Details") },
-                navigationIcon = {
-                    IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                    }
-                },
-                actions = {
-                    IconButton(onClick = {
-                        navController.navigate("edit_shop/${shop.shopId}")
-                    }) {
-                        Icon(Icons.Default.Edit, contentDescription = "Edit Shop")
-                    }
-                }
-            )
-        }
-    ) { paddingValues ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-                .verticalScroll(rememberScrollState())
-        ) {
-            // Cover Image / Header
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(200.dp)
-                    .background(MaterialTheme.colorScheme.primaryContainer),
-                contentAlignment = Alignment.Center
-            ) {
-                if (shop.coverImage.isNotEmpty()) {
-                    Base64Image(
-                        imageSource = shop.coverImage,
-                        contentDescription = "Shop Cover",
-                        modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Crop
-                    )
-                }
+    Box(modifier = Modifier.fillMaxSize().background(deepBlack)) {
+        // --- LIQUID BLOBS ---
+        Box(modifier = Modifier.size(350.dp).offset(x = 150.dp, y = (-50).dp).blur(120.dp).background(amberOrange.copy(alpha = 0.15f), CircleShape))
+        Box(modifier = Modifier.size(300.dp).align(Alignment.CenterStart).offset(x = (-80).dp, y = 150.dp).blur(100.dp).background(amberOrange.copy(alpha = 0.1f), CircleShape))
 
-                // Shop Logo overlay
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.BottomStart)
-                        .padding(16.dp)
-                ) {
-                    if (shop.logo.isNotEmpty()) {
-                        Base64Image(
-                            imageSource = shop.logo,
-                            contentDescription = "Shop Logo",
-                            modifier = Modifier
-                                .size(80.dp)
-                                .clip(RoundedCornerShape(12.dp)),
-                            contentScale = ContentScale.Crop
-                        )
-                    } else {
-                        Box(
-                            modifier = Modifier
-                                .size(80.dp)
-                                .background(
-                                    MaterialTheme.colorScheme.primary,
-                                    RoundedCornerShape(12.dp)
-                                ),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = shop.shopName.take(1).uppercase(),
-                                fontSize = 32.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color.White
-                            )
+        Scaffold(
+            containerColor = Color.Transparent,
+            topBar = {
+                TopAppBar(
+                    colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent, titleContentColor = Color.White),
+                    title = { Text("Business Profile", fontWeight = FontWeight.Black) },
+                    navigationIcon = {
+                        IconButton(onClick = { navController.popBackStack() }) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back", tint = Color.White)
                         }
-                    }
-                }
-
-                // Shop Type Badge
-                Card(
-                    modifier = Modifier
-                        .align(Alignment.TopEnd)
-                        .padding(16.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = if (shop.shopType == ShopType.PRODUCT)
-                            Color(0xFFACC76B) else Color(0xFF6EB8FA)
-                    )
-                ) {
-                    Text(
-                        text = if (shop.shopType == ShopType.PRODUCT) "🛍️ Product Shop" else "🔧 Service Shop",
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                        fontSize = 12.sp,
-                        color = Color.White,
-                        fontWeight = FontWeight.Medium
-                    )
-                }
-            }
-
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp)
-            ) {
-                // Shop Name and Category
-                Text(
-                    text = shop.shopName,
-                    fontSize = 24.sp,
-                    fontWeight = FontWeight.Bold
-                )
-                Text(
-                    text = shop.category,
-                    fontSize = 16.sp,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
-                )
-
-                // Status Row
-                Row(
-                    modifier = Modifier.padding(top = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(10.dp)
-                            .background(
-                                if (shop.open) Color(0xFF4CAF50) else Color(0xFFE53935),
-                                CircleShape
-                            )
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(
-                        text = if (shop.open) "Open Now" else "Closed",
-                        color = if (shop.open) Color(0xFF4CAF50) else Color(0xFFE53935),
-                        fontWeight = FontWeight.Medium
-                    )
-                    Spacer(modifier = Modifier.width(16.dp))
-                    Icon(
-                        Icons.Default.Schedule,
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp),
-                        tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        text = "${shop.openingTime} - ${shop.closingTime}",
-                        fontSize = 14.sp,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // Description Card
-                if (shop.description.isNotEmpty()) {
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-                        )
-                    ) {
-                        Column(
-                            modifier = Modifier.padding(16.dp)
-                        ) {
-                            Text(
-                                text = "About",
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 16.sp
-                            )
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Text(
-                                text = shop.description,
-                                fontSize = 14.sp,
-                                lineHeight = 20.sp
-                            )
-                        }
-                    }
-                    Spacer(modifier = Modifier.height(16.dp))
-                }
-
-                // Stats Card
-                Card(
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(
-                        modifier = Modifier.padding(16.dp)
-                    ) {
-                        Text(
-                            text = "Shop Statistics",
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 16.sp
-                        )
-                        Spacer(modifier = Modifier.height(12.dp))
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceEvenly
-                        ) {
-                            StatCard(
-                                value = shop.totalItems.toString(),
-                                label = if (shop.shopType == ShopType.PRODUCT) "Products" else "Services"
-                            )
-                            VerticalDivider(
-                                modifier = Modifier.height(50.dp),
-                                thickness = 1.dp,
-                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f)
-                            )
-                            StatCard(
-                                value = shop.totalOrders.toString(),
-                                label = "Orders"
-                            )
-                            VerticalDivider(
-                                modifier = Modifier.height(50.dp),
-                                thickness = 1.dp,
-                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f)
-                            )
-                            StatCard(
-                                value = "₹${shop.totalRevenue.toInt()}",
-                                label = "Revenue"
-                            )
-                        }
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // Rating Card
-                Card(
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            Icons.Default.Star,
-                            contentDescription = null,
-                            tint = Color(0xFFFFC107),
-                            modifier = Modifier.size(32.dp)
-                        )
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Column {
-                            Text(
-                                text = String.format("%.1f", shop.rating),
-                                fontSize = 24.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                            Text(
-                                text = "${shop.totalRatings} ratings",
-                                fontSize = 14.sp,
-                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                            )
-                        }
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // Contact Information Card
-                Card(
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(
-                        modifier = Modifier.padding(16.dp)
-                    ) {
-                        Text(
-                            text = "Contact Information",
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 16.sp
-                        )
-                        Spacer(modifier = Modifier.height(12.dp))
-
-                        // Location
-                        ContactInfoRow(
-                            icon = Icons.Default.LocationOn,
-                            label = "Address",
-                            value = buildString {
-                                if (shop.address.isNotEmpty()) append(shop.address)
-                                if (shop.city.isNotEmpty()) {
-                                    if (isNotEmpty()) append(", ")
-                                    append(shop.city)
-                                }
-                                if (shop.pincode.isNotEmpty()) {
-                                    if (isNotEmpty()) append(" - ")
-                                    append(shop.pincode)
-                                }
-                            }.ifEmpty { "Not provided" }
-                        )
-
-                        HorizontalDivider(
-                            modifier = Modifier.padding(vertical = 8.dp),
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f)
-                        )
-
-                        // Phone
-                        ContactInfoRow(
-                            icon = Icons.Default.Call,
-                            label = "Phone",
-                            value = shop.contactNumber.ifEmpty { "Not provided" }
-                        )
-
-                        HorizontalDivider(
-                            modifier = Modifier.padding(vertical = 8.dp),
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f)
-                        )
-
-                        // Email
-                        ContactInfoRow(
-                            icon = Icons.Default.Email,
-                            label = "Email",
-                            value = shop.email.ifEmpty { "Not provided" }
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // Shop ID Card (for reference)
-//                Card(
-//                    modifier = Modifier.fillMaxWidth(),
-//                    colors = CardDefaults.cardColors(
-//                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
-//                    )
-//                ) {
-//                    Row(
-//                        modifier = Modifier
-//                            .fillMaxWidth()
-//                            .padding(16.dp),
-//                        verticalAlignment = Alignment.CenterVertically
-//                    ) {
-//                        Icon(
-//                            Icons.Default.Business,
-//                            contentDescription = null,
-//                            modifier = Modifier.size(20.dp),
-//                            tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-//                        )
-////                        Spacer(modifier = Modifier.width(8.dp))
-////                        Column {
-////                            Text(
-////                                text = "Shop ID",
-////                                fontSize = 12.sp,
-////                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-////                            )
-////                            Text(
-////                                text = shop.shopId,
-////                                fontSize = 12.sp,
-////                                fontWeight = FontWeight.Medium
-////                            )
-////                        }
-//                    }
-//                }
-
-                Spacer(modifier = Modifier.height(24.dp))
-
-                // Edit Shop Button
-                Button(
-                    onClick = {
-                        navController.navigate("edit_shop/${shop.shopId}")
                     },
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Icon(Icons.Default.Edit, contentDescription = null)
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("Edit Shop Details")
+//                    actions = {
+//                        IconButton(onClick = { navController.navigate("edit_shop/${shop.shopId}") }) {
+//                            Icon(Icons.Default.Edit, "Edit", tint = amberOrange)
+//                        }
+//                    }
+                )
+            }
+        ) { paddingValues ->
+            Column(
+                modifier = Modifier.fillMaxSize().padding(paddingValues).verticalScroll(rememberScrollState())
+            ) {
+                // 1. BRANDING HEADER (Cover & Logo)
+                Box(modifier = Modifier.fillMaxWidth().height(260.dp)) {
+                    // Cover Image (16:9 feel)
+                    Surface(
+                        modifier = Modifier.fillMaxWidth().height(200.dp).clip(RoundedCornerShape(bottomStart = 32.dp, bottomEnd = 32.dp)),
+                        color = glassWhite
+                    ) {
+                        if (shop.coverImage.isNotEmpty()) {
+                            Base64Image(shop.coverImage, null, Modifier.fillMaxSize(), ContentScale.Crop)
+                        } else {
+                            Box(modifier = Modifier.fillMaxSize().background(amberOrange.copy(alpha = 0.05f)), contentAlignment = Alignment.Center) {
+                                Icon(Icons.Default.Store, null, Modifier.size(64.dp), tint = amberOrange.copy(alpha = 0.2f))
+                            }
+                        }
+                    }
+
+                    // Logo Overlay (1:1 Square with Glow)
+                    Surface(
+                        modifier = Modifier.align(Alignment.BottomCenter).size(100.dp).border(3.dp, amberOrange, RoundedCornerShape(24.dp)).padding(4.dp),
+                        color = Color.Black,
+                        shape = RoundedCornerShape(20.dp)
+                    ) {
+                        if (shop.logo.isNotEmpty()) {
+                            Base64Image(shop.logo, null, Modifier.fillMaxSize().clip(RoundedCornerShape(16.dp)), ContentScale.Crop)
+                        } else {
+                            Box(contentAlignment = Alignment.Center) {
+                                Text(shop.shopName.take(1).uppercase(), color = amberOrange, fontSize = 40.sp, fontWeight = FontWeight.Black)
+                            }
+                        }
+                    }
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Column(modifier = Modifier.fillMaxWidth().padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                    // 2. SHOP TITLE & STATUS
+                    Text(shop.shopName.uppercase(), fontSize = 24.sp, fontWeight = FontWeight.Black, color = Color.White)
+                    Text(shop.category, color = amberOrange, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Surface(
+                            color = (if (shop.open) Color(0xFF4CAF50) else Color(0xFFE53935)).copy(alpha = 0.1f),
+                            shape = CircleShape,
+                            modifier = Modifier.border(0.5.dp, (if (shop.open) Color(0xFF4CAF50) else Color(0xFFE53935)).copy(alpha = 0.5f), CircleShape)
+                        ) {
+                            Row(modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Box(modifier = Modifier.size(8.dp).background(if (shop.open) Color(0xFF4CAF50) else Color(0xFFE53935), CircleShape))
+                                Spacer(Modifier.width(6.dp))
+                                Text(if (shop.open) "OPEN" else "CLOSED", fontSize = 10.sp, fontWeight = FontWeight.Black, color = if (shop.open) Color(0xFF4CAF50) else Color(0xFFE53935))
+                            }
+                        }
+                        Spacer(Modifier.width(12.dp))
+                        Text("${shop.openingTime} - ${shop.closingTime}", color = Color.Gray, fontSize = 13.sp)
+                    }
+
+                    Spacer(modifier = Modifier.height(32.dp))
+
+                    // 3. STATS DASHBOARD (Amber Tiles)
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        BusinessStatTile(shop.totalOrders.toString(), "Orders", Modifier.weight(1f), amberOrange, outlineWhite)
+                        BusinessStatTile("₹${shop.totalRevenue.toInt()}", "Revenue", Modifier.weight(1f), amberOrange, outlineWhite)
+                        BusinessStatTile(String.format("%.1f", shop.rating), "Rating", Modifier.weight(1f), amberOrange, outlineWhite)
+                    }
+
+                    Spacer(modifier = Modifier.height(24.dp))
+
+                    // 4. ABOUT SECTION
+                    if (shop.description.isNotEmpty()) {
+                        GlassyDetailSection("About Business", outlineWhite) {
+                            Text(shop.description, color = Color.Gray, fontSize = 14.sp, lineHeight = 22.sp)
+                        }
+                        Spacer(modifier = Modifier.height(16.dp))
+                    }
+
+                    // 5. CONTACT & LOCATION
+                    GlassyDetailSection("Contact Details", outlineWhite) {
+                        DetailInfoRow(Icons.Default.LocationOn, "Address", buildString {
+                            append(shop.address)
+                            if (shop.city.isNotEmpty()) append(", ${shop.city}")
+                        }, amberOrange)
+
+                        Divider(modifier = Modifier.padding(vertical = 12.dp), color = Color.White.copy(alpha = 0.05f))
+
+                        DetailInfoRow(Icons.Default.Call, "Phone", shop.contactNumber.ifEmpty { "Not set" }, amberOrange)
+
+                        Divider(modifier = Modifier.padding(vertical = 12.dp), color = Color.White.copy(alpha = 0.05f))
+
+                        DetailInfoRow(Icons.Default.Email, "Official Email", shop.email.ifEmpty { "Not set" }, amberOrange)
+                    }
+
+                    Spacer(modifier = Modifier.height(40.dp))
+
+                    // 6. ACTION BUTTON
+                    Button(
+                        onClick = { navController.navigate("edit_shop/${shop.shopId}") },
+                        modifier = Modifier.fillMaxWidth().height(56.dp),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = amberOrange)
+                    ) {
+                        Icon(Icons.Default.Settings, null, tint = Color.White)
+                        Spacer(Modifier.width(12.dp))
+                        Text("MANAGE SHOP SETTINGS", fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+                    }
+
+                    Spacer(modifier = Modifier.height(30.dp))
+                }
             }
         }
     }
 }
 
-@Composable
-private fun StatCard(
-    value: String,
-    label: String
-) {
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Text(
-            text = value,
-            fontSize = 20.sp,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.primary
-        )
-        Text(
-            text = label,
-            fontSize = 12.sp,
-            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-        )
-    }
-}
+// --- SHARED COMPONENTS ---
 
 @Composable
-private fun ContactInfoRow(
-    icon: ImageVector,
-    label: String,
-    value: String
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.Top
+fun BusinessStatTile(value: String, label: String, modifier: Modifier, accent: Color, outline: Color) {
+    Surface(
+        modifier = modifier.border(1.dp, outline, RoundedCornerShape(20.dp)),
+        color = Color.White.copy(alpha = 0.03f),
+        shape = RoundedCornerShape(20.dp)
     ) {
-        Icon(
-            icon,
-            contentDescription = null,
-            modifier = Modifier.size(20.dp),
-            tint = MaterialTheme.colorScheme.primary
-        )
-        Spacer(modifier = Modifier.width(12.dp))
-        Column {
-            Text(
-                text = label,
-                fontSize = 12.sp,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-            )
-            Text(
-                text = value,
-                fontSize = 14.sp
-            )
+        Column(modifier = Modifier.padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(value, color = accent, fontSize = 18.sp, fontWeight = FontWeight.Black)
+            Text(label, color = Color.Gray, fontSize = 10.sp, fontWeight = FontWeight.Bold)
         }
     }
 }
 
+@Composable
+fun GlassyDetailSection(title: String, outline: Color, content: @Composable () -> Unit) {
+    Surface(
+        modifier = Modifier.fillMaxWidth().border(1.dp, Brush.linearGradient(listOf(outline, Color.Transparent)), RoundedCornerShape(24.dp)),
+        color = Color.White.copy(alpha = 0.04f),
+        shape = RoundedCornerShape(24.dp)
+    ) {
+        Column(modifier = Modifier.padding(20.dp)) {
+            Text(title, color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
+            Spacer(Modifier.height(12.dp))
+            content()
+        }
+    }
+}
+
+@Composable
+fun DetailInfoRow(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, value: String, accent: Color) {
+    Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
+        Box(modifier = Modifier.size(32.dp).background(accent.copy(alpha = 0.1f), CircleShape), contentAlignment = Alignment.Center) {
+            Icon(icon, null, modifier = Modifier.size(16.dp), tint = accent)
+        }
+        Spacer(Modifier.width(16.dp))
+        Column {
+            Text(label, color = Color.Gray, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+            Text(value, color = Color.White, fontSize = 14.sp)
+        }
+    }
+}
+
+// --- PREVIEW ---
+@Preview(showBackground = true)
+@Composable
+fun ShopDetailsAmberPreview() {
+    MaterialTheme {
+        Box(modifier = Modifier.fillMaxSize().background(Color(0xFF0A0A0A))) {
+            Column(modifier = Modifier.padding(24.dp)) {
+                Text("Amber Shop Dashboard", color = Color.White, fontWeight = FontWeight.Bold)
+                Spacer(modifier = Modifier.height(20.dp))
+                BusinessStatTile("₹45k", "Revenue", Modifier.width(120.dp), Color(0xFFFF9100), Color.White.copy(0.1f))
+            }
+        }
+    }
+}

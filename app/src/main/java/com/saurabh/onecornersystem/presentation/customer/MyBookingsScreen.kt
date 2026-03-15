@@ -1,17 +1,24 @@
 package com.saurabh.onecornersystem.presentation.customer
 
 import android.util.Log
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
+import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.blur
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -28,6 +35,7 @@ import com.saurabh.onecornersystem.presentation.customer.viewmodel.CustomerShopV
 import com.saurabh.onecornersystem.utils.Resource
 import java.text.SimpleDateFormat
 import java.util.*
+import androidx.compose.ui.tooling.preview.Preview
 
 private const val TAG = "MyBookingsScreen"
 
@@ -43,491 +51,127 @@ fun MyBookingsScreen(
     val cancelBookingState by viewModel.cancelBookingState.collectAsStateWithLifecycle()
 
     val snackbarHostState = remember { SnackbarHostState() }
-
     var selectedTab by remember { mutableStateOf(0) }
-    var showCancelDialog by remember { mutableStateOf(false) }
-    var selectedBooking by remember { mutableStateOf<Booking?>(null) }
-    var cancelReason by remember { mutableStateOf("") }
-    var isRefreshing by remember { mutableStateOf(false) }
-
     val tabs = listOf("All", "Pending", "Confirmed", "Completed")
 
-    // ============= FETCH BOOKINGS WHEN USER CHANGES =============
+    // Theme Colors
+    val deepBlack = Color(0xFF0A0A0A)
+    val electricBlue = Color(0xFF2979FF)
+    val glassWhite = Color.White.copy(alpha = 0.05f)
+    val outlineWhite = Color.White.copy(alpha = 0.15f)
+
     LaunchedEffect(currentUser) {
-        currentUser?.userId?.let { userId ->
-            Log.d(TAG, "📞 Fetching bookings for user: $userId")
-            isRefreshing = true
-            viewModel.getMyBookings(userId)
-        } ?: run {
-            Log.d(TAG, "⏳ Waiting for user to load...")
-        }
+        currentUser?.userId?.let { viewModel.getMyBookings(it) }
     }
 
-    // ============= HANDLE BOOKING STATE CHANGES =============
-    LaunchedEffect(myBookingsState) {
-        when (myBookingsState) {
-            is Resource.Loading -> {
-                isRefreshing = true
-                Log.d(TAG, "⏳ Loading bookings...")
-            }
-            is Resource.Success -> {
-                isRefreshing = false
-                val count = (myBookingsState as Resource.Success).data.size
-                Log.d(TAG, "✅ Loaded $count bookings")
-            }
-            is Resource.Error -> {
-                isRefreshing = false
-                val error = (myBookingsState as Resource.Error).message
-                Log.e(TAG, "❌ Error loading bookings: $error")
-            }
-            else -> {}
-        }
-    }
+    Box(modifier = Modifier.fillMaxSize().background(deepBlack.copy(alpha = 0.95f))) {
+        // --- LIQUID BLOBS ---
+        Box(modifier = Modifier.size(300.dp).offset(x = (-100).dp, y = 200.dp).blur(130.dp).background(electricBlue.copy(alpha = 0.15f), CircleShape))
+        Box(modifier = Modifier.size(250.dp).align(Alignment.TopEnd).offset(x = 50.dp, y = (-50).dp).blur(100.dp).background(electricBlue.copy(alpha = 0.1f), CircleShape))
 
-    // ============= HANDLE CANCELLATION STATE =============
-    LaunchedEffect(cancelBookingState) {
-        when (val state = cancelBookingState) {
-            is Resource.Success -> {
-                Log.d(TAG, "✅ Booking cancelled successfully")
-                snackbarHostState.showSnackbar(
-                    message = "Booking cancelled successfully",
-                    duration = SnackbarDuration.Short
+        Scaffold(
+            containerColor = Color.Transparent,
+            topBar = {
+                TopAppBar(
+                    colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent, titleContentColor = Color.White),
+                    title = { Text("My Bookings", fontWeight = FontWeight.Black) },
+                    navigationIcon = {
+                        IconButton(onClick = { navController.popBackStack() }) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back", tint = Color.White)
+                        }
+                    }
                 )
-                // Refresh bookings
-                currentUser?.userId?.let { userId ->
-                    viewModel.getMyBookings(userId)
-                }
-            }
-            is Resource.Error -> {
-                Log.e(TAG, "❌ Cancel failed: ${state.message}")
-                snackbarHostState.showSnackbar(
-                    message = state.message ?: "Failed to cancel booking",
-                    actionLabel = "Retry",
-                    duration = SnackbarDuration.Long
-                )
-            }
-            is Resource.Loading -> {
-                Log.d(TAG, "⏳ Cancelling booking...")
-            }
-            else -> {}
-        }
-    }
-
-    // ============= CANCEL DIALOG =============
-    if (showCancelDialog && selectedBooking != null) {
-        AlertDialog(
-            onDismissRequest = {
-                showCancelDialog = false
-                cancelReason = ""
-                selectedBooking = null
             },
-            title = { Text("Cancel Booking") },
-            text = {
-                Column {
-                    Text("Are you sure you want to cancel this booking?")
-                    Spacer(modifier = Modifier.height(8.dp))
-                    OutlinedTextField(
-                        value = cancelReason,
-                        onValueChange = { cancelReason = it },
-                        label = { Text("Reason (optional)") },
-                        modifier = Modifier.fillMaxWidth(),
-                        minLines = 2
+            bottomBar = {
+                NavigationBar(containerColor = Color.Black, contentColor = Color.White) {
+                    val navItems = listOf(
+                        Triple("Home", Icons.Default.Home, "customer_home"),
+                        Triple("Bookings", Icons.Default.Bookmark, "my_bookings"),
+                        Triple("Favorites", Icons.Default.Favorite, "favorites"),
+                        Triple("Profile", Icons.Default.Person, "profile")
                     )
-                }
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        selectedBooking?.let { booking ->
-                            Log.d(TAG, "Cancelling booking: ${booking.bookingId}")
-                            viewModel.cancelBooking(
-                                bookingId = booking.bookingId,
-                                reason = cancelReason,
-                                customerId = currentUser?.userId ?: ""
-                            )
-                        }
-                        showCancelDialog = false
-                        cancelReason = ""
-                        selectedBooking = null
-                    },
-                    colors = ButtonDefaults.textButtonColors(
-                        contentColor = MaterialTheme.colorScheme.error
-                    )
-                ) {
-                    Text("Confirm Cancel")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = {
-                    showCancelDialog = false
-                    cancelReason = ""
-                    selectedBooking = null
-                }) {
-                    Text("Back")
-                }
-            }
-        )
-    }
-
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("My Bookings") },
-                navigationIcon = {
-                    IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
-                    }
-                },
-                actions = {
-                    // Refresh button
-                    IconButton(
-                        onClick = {
-                            currentUser?.userId?.let { userId ->
-                                isRefreshing = true
-                                viewModel.getMyBookings(userId)
-                            }
-                        }
-                    ) {
-                        if (isRefreshing) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(20.dp),
-                                strokeWidth = 2.dp
-                            )
-                        } else {
-                            Icon(Icons.Default.Refresh, contentDescription = "Refresh")
-                        }
-                    }
-                }
-            )
-        },
-        snackbarHost = { SnackbarHost(snackbarHostState) }
-    ) { paddingValues ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-        ) {
-            // Status Tabs
-            ScrollableTabRow(
-                selectedTabIndex = selectedTab,
-                containerColor = MaterialTheme.colorScheme.surface,
-                edgePadding = 0.dp
-            ) {
-                tabs.forEachIndexed { index, title ->
-                    Tab(
-                        selected = selectedTab == index,
-                        onClick = { selectedTab = index },
-                        text = {
-                            Text(
-                                text = title,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                        }
-                    )
-                }
-            }
-
-            // Bookings List
-            when (val state = myBookingsState) {
-                is Resource.Loading -> {
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            CircularProgressIndicator()
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Text(
-                                text = "Loading your bookings...",
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
-                }
-
-                is Resource.Success -> {
-                    val filteredBookings = filterBookingsByTab(state.data, selectedTab)
-
-                    if (filteredBookings.isEmpty()) {
-                        EmptyBookingsPlaceholder(
-                            tabName = tabs[selectedTab],
-                            onBrowseClick = {
-                                navController.popBackStack()
-                            }
-                        )
-                    } else {
-                        LazyColumn(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .padding(16.dp),
-                            verticalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            items(filteredBookings) { booking ->
-                                BookingCard(
-                                    booking = booking,
-                                    onCancelClick = {
-                                        selectedBooking = booking
-                                        showCancelDialog = true
-                                    },
-                                    onClick = {
-                                        navController.navigate("booking_details/${booking.bookingId}")
-                                    }
-                                )
-                            }
-                        }
-                    }
-                }
-
-                is Resource.Error -> {
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            modifier = Modifier.padding(24.dp)
-                        ) {
-                            Icon(
-                                Icons.Default.ErrorOutline,
-                                contentDescription = null,
-                                modifier = Modifier.size(64.dp),
-                                tint = MaterialTheme.colorScheme.error
-                            )
-
-                            Spacer(modifier = Modifier.height(16.dp))
-
-                            Text(
-                                text = "Failed to load bookings",
-                                fontSize = 18.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.error
-                            )
-
-                            Spacer(modifier = Modifier.height(8.dp))
-
-                            Text(
-                                text = if (state.message?.contains("index") == true)
-                                    "Database is being set up. Please wait a moment and try again."
-                                else state.message ?: "Something went wrong",
-                                fontSize = 14.sp,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                textAlign = TextAlign.Center
-                            )
-
-                            Spacer(modifier = Modifier.height(16.dp))
-
-                            Button(
-                                onClick = {
-                                    currentUser?.userId?.let { userId ->
-                                        viewModel.getMyBookings(userId)
+                    navItems.forEach { (label, icon, route) ->
+                        NavigationBarItem(
+                            selected = label == "Bookings", // Yahan "Bookings" active rahega
+                            onClick = {
+                                if (label != "Bookings") {
+                                    navController.navigate(route) {
+                                        popUpTo("customer_home") { saveState = true }
+                                        launchSingleTop = true
+                                        restoreState = true
                                     }
                                 }
+                            },
+                            icon = { Icon(icon, null) },
+                            label = { Text(label, fontSize = 10.sp) },
+                            colors = NavigationBarItemDefaults.colors(
+                                selectedIconColor = electricBlue,
+                                selectedTextColor = electricBlue,
+                                unselectedIconColor = Color.Gray,
+                                indicatorColor = Color.Transparent
+                            )
+                        )
+                    }
+                }
+            },
+            snackbarHost = { SnackbarHost(snackbarHostState) }
+        ) { paddingValues ->
+            Column(modifier = Modifier.fillMaxSize().padding(paddingValues)) {
+
+                // 1. Futuristic Tabs
+                ScrollableTabRow(
+                    selectedTabIndex = selectedTab,
+                    containerColor = Color.Transparent,
+                    contentColor = electricBlue,
+                    edgePadding = 16.dp,
+                    indicator = { tabPositions ->
+                        TabRowDefaults.SecondaryIndicator(
+                            Modifier.tabIndicatorOffset(tabPositions[selectedTab]),
+                            color = electricBlue,
+                            height = 3.dp
+                        )
+                    },
+                    divider = {}
+                ) {
+                    tabs.forEachIndexed { index, title ->
+                        Tab(
+                            selected = selectedTab == index,
+                            onClick = { selectedTab = index },
+                            text = { Text(title, fontSize = 14.sp, fontWeight = if(selectedTab == index) FontWeight.Bold else FontWeight.Normal, color = if(selectedTab == index) Color.White else Color.Gray) }
+                        )
+                    }
+                }
+
+                // 2. Bookings List
+                when (val state = myBookingsState) {
+                    is Resource.Loading -> {
+                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            CircularProgressIndicator(color = electricBlue)
+                        }
+                    }
+                    is Resource.Success -> {
+                        val filtered = filterBookingsByTab(state.data, selectedTab)
+                        if (filtered.isEmpty()) {
+                            EmptyBookingsGlass(tabs[selectedTab], electricBlue, outlineWhite) { navController.popBackStack() }
+                        } else {
+                            LazyColumn(
+                                modifier = Modifier.fillMaxSize().padding(16.dp),
+                                verticalArrangement = Arrangement.spacedBy(16.dp)
                             ) {
-                                Text("Try Again")
+                                items(filtered) { booking ->
+                                    BookingCardGlass(booking, electricBlue, outlineWhite) {
+                                        navController.navigate("booking_details/${booking.bookingId}")
+                                    }
+                                }
                             }
                         }
                     }
-                }
-
-                else -> {}
-            }
-        }
-    }
-}
-
-@Composable
-fun BookingCard(
-    booking: Booking,
-    onCancelClick: () -> Unit,
-    onClick: () -> Unit
-) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 4.dp),
-        onClick = onClick,
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = when (booking.status) {
-                BookingStatus.PENDING -> Color(0xFFFFF3E0)
-                BookingStatus.CONFIRMED -> Color(0xFFE3F2FD)
-                BookingStatus.COMPLETED -> Color(0xFFE8F5E8)
-                BookingStatus.CANCELLED, BookingStatus.REJECTED -> Color(0xFFFFEBEE)
-                else -> MaterialTheme.colorScheme.surface
-            }
-        )
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp)
-        ) {
-            // Header Row with Status
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // Shop Name
-                Text(
-                    text = booking.shopName,
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Bold
-                )
-
-                // Status Chip
-                BookingStatusChip(status = booking.status)
-            }
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // Service Name
-            Text(
-                text = booking.serviceName,
-                fontSize = 14.sp,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
-            )
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // Details Row
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // Date and Time
-                Row(
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        Icons.Default.CalendarToday,
-                        contentDescription = null,
-                        modifier = Modifier.size(14.dp),
-                        tint = MaterialTheme.colorScheme.primary
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        text = formatBookingDate(booking.bookingDate),
-                        fontSize = 12.sp
-                    )
-
-                    Spacer(modifier = Modifier.width(8.dp))
-
-                    Icon(
-                        Icons.Default.Schedule,
-                        contentDescription = null,
-                        modifier = Modifier.size(14.dp),
-                        tint = MaterialTheme.colorScheme.primary
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        text = formatTime(booking.bookingTime),
-                        fontSize = 12.sp
-                    )
-                }
-
-                // Price
-                Text(
-                    text = "₹${booking.servicePrice}",
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary
-                )
-            }
-
-            // Location (if home service)
-            if (booking.serviceLocation == ServiceLocation.CUSTOMER_HOME && booking.serviceAddress.isNotBlank()) {
-                Spacer(modifier = Modifier.height(4.dp))
-                Row(
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        Icons.Default.LocationOn,
-                        contentDescription = null,
-                        modifier = Modifier.size(14.dp),
-                        tint = MaterialTheme.colorScheme.primary
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        text = booking.serviceAddress.take(30) +
-                                if (booking.serviceAddress.length > 30) "..." else "",
-                        fontSize = 11.sp,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                    )
-                }
-            }
-
-            // Cancellation Reason
-            if ((booking.status == BookingStatus.CANCELLED || booking.status == BookingStatus.REJECTED)
-                && booking.cancellationReason.isNotBlank()) {
-                Spacer(modifier = Modifier.height(4.dp))
-                Row(
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        Icons.Default.Warning,
-                        contentDescription = null,
-                        modifier = Modifier.size(14.dp),
-                        tint = Color(0xFFE53935)
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        text = booking.cancellationReason,
-                        fontSize = 11.sp,
-                        color = Color(0xFFE53935),
-                        maxLines = 1
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // Action Buttons based on status
-            when (booking.status) {
-                BookingStatus.PENDING -> {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        OutlinedButton(
-                            onClick = onCancelClick,
-                            modifier = Modifier.weight(1f),
-                            colors = ButtonDefaults.outlinedButtonColors(
-                                contentColor = MaterialTheme.colorScheme.error
-                            )
-                        ) {
-                            Text("Cancel")
-                        }
-
-                        Button(
-                            onClick = onClick,
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Text("View Details")
+                    is Resource.Error -> {
+                        ErrorCardGlass(state.message, electricBlue, outlineWhite) {
+                            currentUser?.userId?.let { viewModel.getMyBookings(it) }
                         }
                     }
-                }
-                BookingStatus.CONFIRMED -> {
-                    Button(
-                        onClick = onClick,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text("View Details")
-                    }
-                }
-                else -> {
-                    Button(
-                        onClick = onClick,
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                            contentColor = MaterialTheme.colorScheme.onSecondaryContainer
-                        )
-                    ) {
-                        Text("View Details")
-                    }
+                    else -> {}
                 }
             }
         }
@@ -535,111 +179,105 @@ fun BookingCard(
 }
 
 @Composable
-fun BookingStatusChip(status: BookingStatus) {
-    val (backgroundColor, textColor, text) = when (status) {
-        BookingStatus.PENDING -> Triple(
-            Color(0xFFFFC107).copy(alpha = 0.2f),
-            Color(0xFFFFC107),
-            "PENDING"
-        )
-        BookingStatus.CONFIRMED -> Triple(
-            Color(0xFF2196F3).copy(alpha = 0.2f),
-            Color(0xFF2196F3),
-            "CONFIRMED"
-        )
-        BookingStatus.IN_PROGRESS -> Triple(
-            Color(0xFF9C27B0).copy(alpha = 0.2f),
-            Color(0xFF9C27B0),
-            "IN PROGRESS"
-        )
-        BookingStatus.COMPLETED -> Triple(
-            Color(0xFF4CAF50).copy(alpha = 0.2f),
-            Color(0xFF4CAF50),
-            "COMPLETED"
-        )
-        BookingStatus.CANCELLED -> Triple(
-            Color(0xFFE53935).copy(alpha = 0.2f),
-            Color(0xFFE53935),
-            "CANCELLED"
-        )
-        BookingStatus.REJECTED -> Triple(
-            Color(0xFFE53935).copy(alpha = 0.2f),
-            Color(0xFFE53935),
-            "REJECTED"
-        )
-        BookingStatus.NO_SHOW -> Triple(
-            Color(0xFF757575).copy(alpha = 0.2f),
-            Color(0xFF757575),
-            "NO SHOW"
-        )
-    }
-
+fun BookingCardGlass(booking: Booking, blue: Color, outline: Color, onClick: () -> Unit) {
     Surface(
-        color = backgroundColor,
-        shape = MaterialTheme.shapes.small
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth().border(1.dp, Brush.linearGradient(listOf(outline, Color.Transparent)), RoundedCornerShape(24.dp)),
+        color = Color.White.copy(alpha = 0.05f),
+        shape = RoundedCornerShape(24.dp)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(booking.shopName, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 17.sp)
+                    Text(booking.serviceName, color = Color.Gray, fontSize = 13.sp)
+                }
+                BookingStatusChipLiquid(booking.status)
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.CalendarToday, null, tint = blue, modifier = Modifier.size(14.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(formatBookingDate(booking.bookingDate), color = Color.White, fontSize = 12.sp)
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Icon(Icons.Default.Schedule, null, tint = blue, modifier = Modifier.size(14.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(formatTime1(booking.bookingTime), color = Color.White, fontSize = 12.sp)
+                }
+                Text("₹${booking.servicePrice}", color = blue, fontWeight = FontWeight.Black, fontSize = 16.sp)
+            }
+
+            if (booking.serviceLocation == ServiceLocation.CUSTOMER_HOME) {
+                Spacer(modifier = Modifier.height(12.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.Home, null, tint = Color.Gray, modifier = Modifier.size(14.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(booking.serviceAddress.take(35) + "...", color = Color.Gray, fontSize = 11.sp)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun BookingStatusChipLiquid(status: BookingStatus) {
+    val color = when (status) {
+        BookingStatus.PENDING -> Color(0xFFFFC107)
+        BookingStatus.CONFIRMED -> Color(0xFF2196F3)
+        BookingStatus.COMPLETED -> Color(0xFF4CAF50)
+        else -> Color(0xFFE53935)
+    }
+    Surface(
+        color = color.copy(alpha = 0.15f),
+        shape = CircleShape,
+        modifier = Modifier.border(0.5.dp, color.copy(alpha = 0.5f), CircleShape)
     ) {
         Text(
-            text = text,
-            fontSize = 11.sp,
-            fontWeight = FontWeight.Medium,
-            color = textColor,
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+            text = status.name,
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+            fontSize = 10.sp,
+            fontWeight = FontWeight.Bold,
+            color = color
         )
     }
 }
 
 @Composable
-fun EmptyBookingsPlaceholder(
-    tabName: String,
-    onBrowseClick: () -> Unit
-) {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(32.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-        Icon(
-            Icons.Default.BookmarkBorder,
-            contentDescription = null,
-            modifier = Modifier.size(64.dp),
-            tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f)
-        )
-
+fun EmptyBookingsGlass(tab: String, blue: Color, outline: Color, onBrowse: () -> Unit) {
+    Column(modifier = Modifier.fillMaxSize().padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+        Icon(Icons.Default.BookmarkBorder, null, modifier = Modifier.size(80.dp), tint = Color.Gray.copy(alpha = 0.3f))
         Spacer(modifier = Modifier.height(16.dp))
-
-        Text(
-            text = if (tabName == "All") "No Bookings Yet" else "No $tabName Bookings",
-            fontSize = 20.sp,
-            fontWeight = FontWeight.Bold
-        )
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        Text(
-            text = when (tabName) {
-                "All" -> "Book a service to see it here"
-                "Pending" -> "You don't have any pending bookings"
-                "Confirmed" -> "No confirmed bookings yet"
-                "Completed" -> "No completed bookings yet"
-                else -> "Book a service to see it here"
-            },
-            fontSize = 14.sp,
-            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
-            textAlign = TextAlign.Center
-        )
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        Button(
-            onClick = onBrowseClick
-        ) {
-            Text("Browse Services")
+        Text("No $tab Bookings", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+        Text("Your scheduled services will appear here.", color = Color.Gray, textAlign = TextAlign.Center, fontSize = 14.sp)
+        Spacer(modifier = Modifier.height(24.dp))
+        Button(onClick = onBrowse, colors = ButtonDefaults.buttonColors(containerColor = blue), shape = RoundedCornerShape(12.dp)) {
+            Text("Find a Service")
         }
     }
 }
 
+// --- PREVIEW ---
+
+@Preview(showBackground = true, showSystemUi = true)
+@Composable
+fun MyBookingsLiquidPreview() {
+    MaterialTheme {
+        Box(modifier = Modifier.fillMaxSize().background(Color(0xFF0A0A0A))) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                BookingCardGlass(
+                    Booking(shopName = "Cyber Mechanic", serviceName = "Engine Tuning", servicePrice = 1500.0, bookingDate = "2026-03-20", bookingTime = "10:30", status = BookingStatus.CONFIRMED),
+                    Color(0xFF2979FF),
+                    Color.White.copy(0.1f)
+                ) {}
+            }
+        }
+    }
+}
+
+// Helper functions (same as your logic)
 private fun filterBookingsByTab(bookings: List<Booking>, tabIndex: Int): List<Booking> {
     return when (tabIndex) {
         0 -> bookings
@@ -654,29 +292,17 @@ private fun formatBookingDate(dateStr: String): String {
     return try {
         val inputFormat = SimpleDateFormat("yyyy-MM-dd", Locale.US)
         val outputFormat = SimpleDateFormat("dd MMM", Locale.US)
-        val date = inputFormat.parse(dateStr)
-        outputFormat.format(date)
-    } catch (e: Exception) {
-        dateStr
-    }
+        outputFormat.format(inputFormat.parse(dateStr)!!)
+    } catch (e: Exception) { dateStr }
 }
 
-private fun formatTime(timeStr: String): String {
+private fun formatTime1(timeStr: String): String {
     return try {
-        if (timeStr.contains(":")) {
-            val parts = timeStr.split(":")
-            var hour = parts[0].toInt()
-            val minute = parts[1]
-            val amPm = if (hour >= 12) "PM" else "AM"
-
-            if (hour > 12) hour -= 12
-            if (hour == 0) hour = 12
-
-            String.format("%d:%s %s", hour, minute, amPm)
-        } else {
-            timeStr
-        }
-    } catch (e: Exception) {
-        timeStr
-    }
+        val parts = timeStr.split(":")
+        var hour = parts[0].toInt()
+        val amPm = if (hour >= 12) "PM" else "AM"
+        if (hour > 12) hour -= 12
+        if (hour == 0) hour = 12
+        String.format("%d:%s %s", hour, parts[1], amPm)
+    } catch (e: Exception) { timeStr }
 }

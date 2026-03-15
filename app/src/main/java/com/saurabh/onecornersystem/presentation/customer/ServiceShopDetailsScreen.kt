@@ -27,6 +27,7 @@ import coil.compose.rememberAsyncImagePainter
 import com.saurabh.onecornersystem.data.model.Shop
 import com.saurabh.onecornersystem.data.model.ShopItem
 import com.saurabh.onecornersystem.data.model.ShopType
+import com.saurabh.onecornersystem.presentation.components.ErrorCard
 import com.saurabh.onecornersystem.presentation.customer.viewmodel.CustomerShopViewModel
 import com.saurabh.onecornersystem.presentation.shopowner.viewmodel.ShopItemViewModel
 import com.saurabh.onecornersystem.utils.ImageUtils
