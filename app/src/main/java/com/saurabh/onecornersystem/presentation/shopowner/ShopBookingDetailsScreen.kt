@@ -93,7 +93,7 @@ fun ShopBookingDetailsScreen(
                         Column(modifier = Modifier.fillMaxWidth().padding(20.dp)) {
                             Text("TICKET ID: #${booking.bookingId.takeLast(8).uppercase()}", color = Color.Gray, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
 
-                            Spacer(modifier = Modifier.height(20.dp))
+                            Spacer(modifier = Modifier.height(12.dp))
 
                             // 2. Customer Section
                             GlassySectionCard("Customer Information", outlineWhite) {
@@ -102,7 +102,7 @@ fun ShopBookingDetailsScreen(
                                 InfoRowLiquid(Icons.Default.Email, "Email Address", booking.customerEmail, amberOrange)
                             }
 
-                            Spacer(modifier = Modifier.height(16.dp))
+                            Spacer(modifier = Modifier.height(8.dp))
 
                             // 3. Service Details
                             GlassySectionCard("Service Highlights", outlineWhite) {
@@ -111,7 +111,7 @@ fun ShopBookingDetailsScreen(
                                 InfoRowLiquid(Icons.Default.Payments, "Final Price", "₹${booking.servicePrice}", amberOrange)
                             }
 
-                            Spacer(modifier = Modifier.height(16.dp))
+                            Spacer(modifier = Modifier.height(8.dp))
 
                             // 4. Appointment Schedule
                             GlassySectionCard("Booking Schedule", outlineWhite) {

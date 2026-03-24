@@ -35,6 +35,7 @@ import com.google.android.gms.location.LocationServices
 import com.saurabh.onecornersystem.data.model.Shop
 import com.saurabh.onecornersystem.data.model.ShopItem
 import com.saurabh.onecornersystem.data.model.ShopType
+import com.saurabh.onecornersystem.presentation.navigation.Screen
 import com.saurabh.onecornersystem.presentation.shopowner.viewmodel.ShopItemViewModel
 import com.saurabh.onecornersystem.presentation.shopowner.viewmodel.ShopViewModel
 import com.saurabh.onecornersystem.utils.Resource
@@ -43,7 +44,7 @@ import com.saurabh.onecornersystem.utils.Resource
 @SuppressLint("MissingPermission")
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ShopOwnerHomeScreen1(
+fun ShopOwnerHomeScreen(
     navController: NavController,
     ownerId: String,
     viewModel: ShopViewModel = hiltViewModel(),
@@ -763,7 +764,7 @@ fun ProductSection(shopId: String, navController: NavController) {
         modifier = Modifier.fillMaxWidth(),
         onClick = {
             Log.d("ShopOwnerHome_Product", "ProductSection: Clicked to view products for shopId=$shopId")
-            navController.navigate("products/$shopId")
+            navController.navigate(Screen.ProductList.passShopId(shopId))
         }
     ) {
         Row(
