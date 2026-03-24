@@ -43,7 +43,7 @@ import com.saurabh.onecornersystem.utils.Resource
 @SuppressLint("MissingPermission")
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ShopOwnerHomeScreen1(
+fun ShopOwnerHomeScreen(
     navController: NavController,
     ownerId: String,
     viewModel: ShopViewModel = hiltViewModel(),
