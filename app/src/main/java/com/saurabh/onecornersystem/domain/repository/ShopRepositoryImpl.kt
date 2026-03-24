@@ -158,7 +158,7 @@ class ShopRepositoryImpl @Inject constructor(
             }
         } catch (e: Exception) {
             emit(Resource.Error(e.message ?: "Failed to get shop by owner"))
-            Log.e("ShopRepository", "❌ Get shop by owner error", e)
+            Log.e("ShopRepository", "Get shop by owner error", e)
         }
     }
 
@@ -174,10 +174,10 @@ class ShopRepositoryImpl @Inject constructor(
                 .await()
 
             emit(Resource.Success(true))
-            Log.d("ShopRepository", "✅ Shop profile updated: $shopId")
+            Log.d("ShopRepository", " Shop profile updated: $shopId")
         } catch (e: Exception) {
             emit(Resource.Error(e.message ?: "Failed to update shop profile"))
-            Log.e("ShopRepository", "❌ Update shop profile error", e)
+            Log.e("ShopRepository", "Update shop profile error", e)
         }
     }
 
@@ -195,10 +195,10 @@ class ShopRepositoryImpl @Inject constructor(
                 .await()
 
             emit(Resource.Success(true))
-            Log.d("ShopRepository", "✅ Shop active status updated: $isActive")
+            Log.d("ShopRepository", "Shop active status updated: $isActive")
         } catch (e: Exception) {
             emit(Resource.Error(e.message ?: "Failed to update shop status"))
-            Log.e("ShopRepository", "❌ Update shop status error", e)
+            Log.e("ShopRepository", " Update shop status error", e)
         }
     }
 
@@ -232,7 +232,7 @@ class ShopRepositoryImpl @Inject constructor(
                 .addSnapshotListener { snapshot, error ->
                     if (error != null) {
                         trySend(Resource.Error(error.message ?: "Listen Failed"))
-                        Log.e("ShopRepository", "❌ Listen to shop details error", error)
+                        Log.e("ShopRepository", "Listen to shop details error", error)
                         return@addSnapshotListener
                     }
                     try {
@@ -254,19 +254,19 @@ class ShopRepositoryImpl @Inject constructor(
                         }
                     } catch (e: Exception) {
                         trySend(Resource.Error(e.message ?: "Listen Failed Data processing error"))
-                        Log.e("ShopRepository", "❌ Listen to shop data details error", e)
+                        Log.e("ShopRepository", "Listen to shop data details error", e)
                     }
                 }
             awaitClose {
                 try {
                     listener?.remove()
-                    Log.d("ShopRepository", "👂 Shop details listener removed")
+                    Log.d("ShopRepository", "Shop details listener removed")
                 } catch (e: Exception) {
-                    Log.e("ShopRepository", "❌ Error removing listener", e)
+                    Log.e("ShopRepository", "Error removing listener", e)
                 }
             }
         } catch (e: Exception) {
-            Log.e("ShopRepository", "❌ Listen to shop details error with shop id : $shopId", e)
+            Log.e("ShopRepository", "Listen to shop details error with shop id : $shopId", e)
             trySend(Resource.Error(e.message ?: "Listen Failed"))
             close(e)
         }
@@ -290,7 +290,7 @@ class ShopRepositoryImpl @Inject constructor(
             }
         } catch (e: Exception) {
             emit(Resource.Error(e.message ?: "Failed to get shop rating"))
-            Log.e("ShopRepository", "❌ Get shop rating error", e)
+            Log.e("ShopRepository", "Get shop rating error", e)
         }
     }
 
@@ -315,10 +315,10 @@ class ShopRepositoryImpl @Inject constructor(
                 .await()
 
             emit(Resource.Success(true))
-            Log.d("ShopRepository", "✅ Shop stats updated: $shopId")
+            Log.d("ShopRepository", " Shop stats updated: $shopId")
         } catch (e: Exception) {
             emit(Resource.Error(e.message ?: "Failed to update shop stats"))
-            Log.e("ShopRepository", "❌ Update shop stats error", e)
+            Log.e("ShopRepository", "Update shop stats error", e)
         }
     }
 
@@ -342,10 +342,10 @@ class ShopRepositoryImpl @Inject constructor(
                 .await()
 
             emit(Resource.Success(logoBase64))
-            Log.d("ShopRepository", "✅ Logo uploaded for shop: $shopId")
+            Log.d("ShopRepository", "Logo uploaded for shop: $shopId")
         } catch (e: Exception) {
             emit(Resource.Error(e.message ?: "Failed to upload logo"))
-            Log.e("ShopRepository", "❌ Upload logo error", e)
+            Log.e("ShopRepository", "Upload logo error", e)
         }
     }
 
@@ -367,10 +367,10 @@ class ShopRepositoryImpl @Inject constructor(
                 .await()
 
             emit(Resource.Success(coverBase64))
-            Log.d("ShopRepository", "✅ Cover uploaded for shop: $shopId")
+            Log.d("ShopRepository", "Cover uploaded for shop: $shopId")
         } catch (e: Exception) {
             emit(Resource.Error(e.message ?: "Failed to upload cover"))
-            Log.e("ShopRepository", "❌ Upload cover error", e)
+            Log.e("ShopRepository", " Upload cover error", e)
         }
     }
 
@@ -389,10 +389,10 @@ class ShopRepositoryImpl @Inject constructor(
                 .await()
 
             emit(Resource.Success(true))
-            Log.d("ShopRepository", "✅ Logo removed for shop: $shopId")
+            Log.d("ShopRepository", "Logo removed for shop: $shopId")
         } catch (e: Exception) {
             emit(Resource.Error(e.message ?: "Failed to remove logo"))
-            Log.e("ShopRepository", "❌ Remove logo error", e)
+            Log.e("ShopRepository", "Remove logo error", e)
         }
     }
 
@@ -411,10 +411,10 @@ class ShopRepositoryImpl @Inject constructor(
                 .await()
 
             emit(Resource.Success(true))
-            Log.d("ShopRepository", "✅ Cover removed for shop: $shopId")
+            Log.d("ShopRepository", "Cover removed for shop: $shopId")
         } catch (e: Exception) {
             emit(Resource.Error(e.message ?: "Failed to remove cover"))
-            Log.e("ShopRepository", "❌ Remove cover error", e)
+            Log.e("ShopRepository", "Remove cover error", e)
         }
     }
 
@@ -450,10 +450,10 @@ class ShopRepositoryImpl @Inject constructor(
                 }
 
             emit(Resource.Success(nearbyShops))
-            Log.d("ShopRepository", "📍 Found ${nearbyShops.size} nearby shops")
+            Log.d("ShopRepository", "Found ${nearbyShops.size} nearby shops")
         } catch (e: Exception) {
             emit(Resource.Error(e.message ?: "Failed to get nearby shops"))
-            Log.e("ShopRepository", "❌ Nearby shops error", e)
+            Log.e("ShopRepository", "Nearby shops error", e)
         }
     }
 
@@ -487,10 +487,10 @@ class ShopRepositoryImpl @Inject constructor(
                 }
 
             emit(Resource.Success(nearbyShops))
-            Log.d("ShopRepository", "📍 Found ${nearbyShops.size} nearby $shopType shops")
+            Log.d("ShopRepository", "Found ${nearbyShops.size} nearby $shopType shops")
         } catch (e: Exception) {
             emit(Resource.Error(e.message ?: "Failed to get nearby shops by type"))
-            Log.e("ShopRepository", "❌ Nearby shops by type error", e)
+            Log.e("ShopRepository", "Nearby shops by type error", e)
         }
     }
 
@@ -515,10 +515,10 @@ class ShopRepositoryImpl @Inject constructor(
             }
 
             emit(Resource.Success(results))
-            Log.d("ShopRepository", "🔍 Search found ${results.size} shops")
+            Log.d("ShopRepository", " Search found ${results.size} shops")
         } catch (e: Exception) {
             emit(Resource.Error(e.message ?: "Search failed"))
-            Log.e("ShopRepository", "❌ Search error", e)
+            Log.e("ShopRepository", " Search error", e)
         }
     }
 
@@ -540,10 +540,10 @@ class ShopRepositoryImpl @Inject constructor(
             val shops = snapshot.toObjects(Shop::class.java)
 
             emit(Resource.Success(shops))
-            Log.d("ShopRepository", "📋 Found ${shops.size} shops in category $category")
+            Log.d("ShopRepository", "Found ${shops.size} shops in category $category")
         } catch (e: Exception) {
             emit(Resource.Error(e.message ?: "Failed to get shops by category"))
-            Log.e("ShopRepository", "❌ Get shops by category error", e)
+            Log.e("ShopRepository", " Get shops by category error", e)
         }
     }
 
@@ -571,10 +571,10 @@ class ShopRepositoryImpl @Inject constructor(
             }.sortedBy { it.categoryName }
 
             emit(Resource.Success(categories))
-            Log.d("ShopRepository", "📚 Found ${categories.size} unique categories")
+            Log.d("ShopRepository", "Found ${categories.size} unique categories")
         } catch (e: Exception) {
             emit(Resource.Error(e.message ?: "Failed to get categories"))
-            Log.e("ShopRepository", "❌ Get categories error", e)
+            Log.e("ShopRepository", "Get categories error", e)
         }
     }
 
@@ -625,10 +625,10 @@ class ShopRepositoryImpl @Inject constructor(
                 .sortedBy { it.categoryName }
 
             emit(Resource.Success(categories))
-            Log.d("ShopRepository", "📚 Found ${categories.size} service categories")
+            Log.d("ShopRepository", "Found ${categories.size} service categories")
         } catch (e: Exception) {
             emit(Resource.Error(e.message ?: "Failed to get service categories"))
-            Log.e("ShopRepository", "❌ Get service categories error", e)
+            Log.e("ShopRepository", "Get service categories error", e)
         }
     }
 
@@ -653,10 +653,10 @@ class ShopRepositoryImpl @Inject constructor(
                 .await()
 
             emit(Resource.Success(true))
-            Log.d("ShopRepository", "❤️ Shop added to favorites: ${shop.shopId}")
+            Log.d("ShopRepository", "Shop added to favorites: ${shop.shopId}")
         } catch (e: Exception) {
             emit(Resource.Error(e.message ?: "Failed to add to favorites"))
-            Log.e("ShopRepository", "❌ Add to favorites error", e)
+            Log.e("ShopRepository", " Add to favorites error", e)
         }
     }
 
@@ -671,10 +671,10 @@ class ShopRepositoryImpl @Inject constructor(
                 .await()
 
             emit(Resource.Success(true))
-            Log.d("ShopRepository", "❤️ Shop removed from favorites: $shopId")
+            Log.d("ShopRepository", " Shop removed from favorites: $shopId")
         } catch (e: Exception) {
             emit(Resource.Error(e.message ?: "Failed to remove from favorites"))
-            Log.e("ShopRepository", "❌ Remove from favorites error", e)
+            Log.e("ShopRepository", " Remove from favorites error", e)
         }
     }
 
@@ -702,10 +702,10 @@ class ShopRepositoryImpl @Inject constructor(
                 .toObjects(Shop::class.java)
 
             emit(Resource.Success(shops))
-            Log.d("ShopRepository", "❤️ Found ${shops.size} favorite shops")
+            Log.d("ShopRepository", "Found ${shops.size} favorite shops")
         } catch (e: Exception) {
             emit(Resource.Error(e.message ?: "Failed to get favorite shops"))
-            Log.e("ShopRepository", "❌ Get favorite shops error", e)
+            Log.e("ShopRepository", " Get favorite shops error", e)
         }
     }
 
@@ -734,10 +734,10 @@ class ShopRepositoryImpl @Inject constructor(
                 .toObjects(Shop::class.java)
 
             emit(Resource.Success(shops))
-            Log.d("ShopRepository", "❤️ Found ${shops.size} favorite $shopType shops")
+            Log.d("ShopRepository", " Found ${shops.size} favorite $shopType shops")
         } catch (e: Exception) {
             emit(Resource.Error(e.message ?: "Failed to get favorite shops by type"))
-            Log.e("ShopRepository", "❌ Get favorite shops by type error", e)
+            Log.e("ShopRepository", " Get favorite shops by type error", e)
         }
     }
 
@@ -758,10 +758,10 @@ class ShopRepositoryImpl @Inject constructor(
                 .await()
 
             emit(Resource.Success(bookingWithId))
-            Log.d("ShopRepository", "✅ Booking created: ${bookingWithId.bookingId}")
+            Log.d("ShopRepository", " Booking created: ${bookingWithId.bookingId}")
         } catch (e: Exception) {
             emit(Resource.Error(e.message ?: "Failed to create booking"))
-            Log.e("ShopRepository", "❌ Create booking error", e)
+            Log.e("ShopRepository", " Create booking error", e)
         }
     }
 
@@ -777,7 +777,7 @@ class ShopRepositoryImpl @Inject constructor(
             }
         } catch (e: Exception) {
             emit(Resource.Error(e.message ?: "Failed to get booking"))
-            Log.e("ShopRepository", "❌ Get booking error", e)
+            Log.e("ShopRepository", " Get booking error", e)
         }
     }
 
@@ -792,10 +792,10 @@ class ShopRepositoryImpl @Inject constructor(
 
             val bookings = snapshot.toObjects(Booking::class.java)
             emit(Resource.Success(bookings))
-            Log.d("ShopRepository", "📋 Found ${bookings.size} bookings for shop $shopId")
+            Log.d("ShopRepository", " Found ${bookings.size} bookings for shop $shopId")
         } catch (e: Exception) {
             emit(Resource.Error(e.message ?: "Failed to get shop bookings"))
-            Log.e("ShopRepository", "❌ Get shop bookings error", e)
+            Log.e("ShopRepository", " Get shop bookings error", e)
         }
     }
 

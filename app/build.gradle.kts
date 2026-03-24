@@ -112,4 +112,6 @@ dependencies {
 
     // Google Play Services Location for GPS
     implementation("com.google.android.gms:play-services-location:21.3.0")
+
+    implementation("com.vanniktech:android-image-cropper:4.7.0")
 }

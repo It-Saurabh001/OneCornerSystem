@@ -697,7 +697,7 @@ fun AppNavGraph(
                     },
                     onFavoritesClick = {
                         navController.navigate(Screen.Favorites.route)
-                    }
+                    },
                 )
             } else {
                 Log.d("NavGraph_Profile", "Current user is null")

@@ -1,13 +1,8 @@
 package com.saurabh.onecornersystem.presentation.shopowner
 
-import android.Manifest
 import android.annotation.SuppressLint
 import android.content.Context
-import android.content.Intent
-import android.content.pm.PackageManager
-import android.location.LocationManager
 import android.net.Uri
-import android.provider.Settings
 import android.util.Log
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -16,31 +11,66 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.filled.AddPhotoAlternate
+import androidx.compose.material.icons.filled.Business
+import androidx.compose.material.icons.filled.Description
+import androidx.compose.material.icons.filled.Email
+import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.LocationCity
+import androidx.compose.material.icons.filled.Map
+import androidx.compose.material.icons.filled.Phone
+import androidx.compose.material.icons.filled.Pin
+import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material.icons.filled.Store
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import coil.compose.rememberAsyncImagePainter
@@ -53,7 +83,11 @@ import com.saurabh.onecornersystem.presentation.ImagePickerDialog
 import com.saurabh.onecornersystem.presentation.components.Base64Image
 import com.saurabh.onecornersystem.presentation.shopowner.viewmodel.ShopViewModel
 import com.saurabh.onecornersystem.utils.Resource
-import androidx.compose.ui.tooling.preview.Preview
+
+// --- CROPPER IMPORTS ---
+import com.canhub.cropper.CropImageContract
+import com.canhub.cropper.CropImageContractOptions
+import com.canhub.cropper.CropImageOptions
 
 @SuppressLint("MissingPermission")
 @OptIn(ExperimentalMaterial3Api::class)
@@ -86,43 +120,85 @@ fun EditShopScreen(
 
     var fetchingLocation by remember { mutableStateOf(false) }
     var showLocationSettingsDialog by remember { mutableStateOf(false) }
+
+    // Image Flags
+    var isLogoRemoved by remember { mutableStateOf(false) }
+    var isCoverRemoved by remember { mutableStateOf(false) }
     var logoUri by remember { mutableStateOf<Uri?>(null) }
     var coverUri by remember { mutableStateOf<Uri?>(null) }
+
     var showCameraFor by remember { mutableStateOf<String?>(null) }
     var showImageOptionsFor by remember { mutableStateOf<String?>(null) }
+    var pickingFor by remember { mutableStateOf<String?>(null) }
 
     val TAG = "EditShopScreen_Log"
+
+    // 1. Cropper Launcher (Handles the cropped result from BOTH Gallery and Camera)
+    @Suppress("DEPRECATION")
+    val imageCropLauncher = rememberLauncherForActivityResult(CropImageContract()) { result ->
+        if (result.isSuccessful) {
+            val croppedUri = result.uriContent
+            Log.d(TAG, "Cropper Success: Cropped URI -> $croppedUri")
+            when (pickingFor) {
+                "logo" -> {
+                    logoUri = croppedUri
+                    isLogoRemoved = false
+                }
+                "cover" -> {
+                    coverUri = croppedUri
+                    isCoverRemoved = false
+                }
+            }
+        } else {
+            Log.e(TAG, "Cropper error: ${result.error}")
+        }
+        pickingFor = null // Reset state after cropper is done
+    }
+
+    // 2. Photo Picker Launcher (Handles raw gallery selection & passes to cropper)
     val photoPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickVisualMedia(),
         onResult = { uri ->
             if (uri != null) {
-                Log.d(TAG, "Gallery Success: Image picked for $showImageOptionsFor -> $uri")
-                when (showImageOptionsFor) {
-                    "logo" -> logoUri = uri
-                    "cover" -> coverUri = uri
-                }
+                Log.d(TAG, "Gallery Success: Raw URI -> $uri")
+                @Suppress("DEPRECATION")
+                val cropOptions = CropImageContractOptions(
+                    uri = uri,
+                    cropImageOptions = CropImageOptions(
+                        imageSourceIncludeGallery = false,
+                        imageSourceIncludeCamera = false,
+                        fixAspectRatio = true, // Lock aspect ratio
+                        aspectRatioX = if (pickingFor == "cover") 16 else 1,
+                        aspectRatioY = if (pickingFor == "cover") 9 else 1,
+                        // FIX: Changed toolbarTitle to activityTitle
+                        activityTitle = if (pickingFor == "cover") "Crop Cover Image" else "Crop Shop Logo"
+                    )
+                )
+
+                imageCropLauncher.launch(cropOptions)
+
             } else {
                 Log.d(TAG, "Gallery Cancelled: No image selected")
+                pickingFor = null
             }
-            showImageOptionsFor = null
         }
     )
 
+    // Collect all states to prevent early back navigation
     val updateState by viewModel.updateShopState.collectAsState()
+    val coverUploadState by viewModel.coverUploadState.collectAsState()
+    val logoUploadState by viewModel.logoUploadState.collectAsState()
 
-    LaunchedEffect(updateState) {
-        when (updateState) {
-            is Resource.Success -> {
-                Log.d(TAG, "Update State: SUCCESS! Navigating back.")
-                navController.popBackStack()
-            }
-            is Resource.Error -> {
-                Log.e(TAG, "Update State: ERROR -> ${(updateState as Resource.Error).message}")
-            }
-            is Resource.Loading -> {
-                Log.d(TAG, "Update State: LOADING...")
-            }
-            else -> {}
+    // Safe Navigation (Waits for both text AND images to finish)
+    LaunchedEffect(updateState, coverUploadState, logoUploadState) {
+        val isBasicSuccess = updateState is Resource.Success
+        val isCoverSuccess = if (coverUri != null) coverUploadState is Resource.Success else true
+        val isLogoSuccess = if (logoUri != null) logoUploadState is Resource.Success else true
+
+        if (isBasicSuccess && isCoverSuccess && isLogoSuccess) {
+            Log.d(TAG, "All uploads & updates successful!")
+            Toast.makeText(context, "Changes saved successfully!", Toast.LENGTH_SHORT).show()
+            viewModel.resetAllStates()
         }
     }
 
@@ -131,11 +207,29 @@ fun EditShopScreen(
         CameraCaptureScreen(
             onImageCaptured = { uri ->
                 Log.d(TAG, "Camera Success: Captured for $showCameraFor -> $uri")
-                if (showCameraFor == "logo") logoUri = uri else coverUri = uri
+
+                // Set pickingFor so cropper knows what aspect ratio to use
+                pickingFor = showCameraFor
+                @Suppress("DEPRECATION")
+                val cropOptions = CropImageContractOptions(
+                    uri = uri,
+                    cropImageOptions = CropImageOptions(
+                        imageSourceIncludeGallery = false,
+                        imageSourceIncludeCamera = false,
+                        fixAspectRatio = true,
+                        aspectRatioX = if (showCameraFor == "cover") 16 else 1,
+                        aspectRatioY = if (showCameraFor == "cover") 9 else 1,
+                        // FIX: Changed toolbarTitle to activityTitle
+                        activityTitle = if (showCameraFor == "cover") "Crop Cover Image" else "Crop Shop Logo"
+                    )
+                )
+
+                // Hide camera screen and launch cropper
                 showCameraFor = null
+                imageCropLauncher.launch(cropOptions)
             },
             onBackClick = {
-                Log.d(TAG, "Camera Cancelled: User clicked back")
+                Log.d(TAG, "Camera Cancelled")
                 showCameraFor = null
             }
         )
@@ -163,64 +257,44 @@ fun EditShopScreen(
                     modifier = Modifier.fillMaxSize().padding(paddingValues).verticalScroll(rememberScrollState()).padding(20.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    // Branding Row
                     Column(
                         modifier = Modifier.fillMaxWidth(),
                         verticalArrangement = Arrangement.spacedBy(20.dp)
                     ) {
-                        // --- LOGO SECTION (1:1 Ratio) ---
-                        Column(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalAlignment = Alignment.CenterHorizontally // Logo ko center mein rakhne ke liye
-                        ) {
-                            Text(
-                                "Shop Logo",
-                                color = Color.Gray,
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Bold,
-                                modifier = Modifier.fillMaxWidth() // Label left-aligned rahega
-                            )
+                        // --- LOGO SECTION ---
+                        Column(modifier = Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text("Shop Logo", color = Color.Gray, fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.fillMaxWidth())
                             Spacer(modifier = Modifier.height(8.dp))
                             Surface(
-                                onClick = {
-                                    Log.d(TAG, "Click: Logo Section clicked")
-                                    showImageOptionsFor = "logo" },
-                                modifier = Modifier
-                                    .size(120.dp) // Fixed square size for Logo
-                                    .aspectRatio(1f) // Enforcing 1:1
-                                    .border(1.dp, outlineWhite, RoundedCornerShape(24.dp)),
+                                onClick = { showImageOptionsFor = "logo" },
+                                modifier = Modifier.size(120.dp).aspectRatio(1f).border(1.dp, outlineWhite, RoundedCornerShape(24.dp)),
                                 color = glassWhite,
                                 shape = RoundedCornerShape(24.dp)
                             ) {
                                 Box(contentAlignment = Alignment.Center) {
                                     when {
                                         logoUri != null -> Image(rememberAsyncImagePainter(logoUri), null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
-                                        shop.logo.isNotBlank() -> Base64Image(shop.logo, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+                                        shop.logo.isNotBlank() && !isLogoRemoved -> Base64Image(shop.logo, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
                                         else -> Icon(Icons.Default.Store, null, tint = amberOrange, modifier = Modifier.size(36.dp))
                                     }
                                 }
                             }
                         }
 
-                        // --- COVER SECTION (16:9 Ratio) ---
+                        // --- COVER SECTION ---
                         Column(modifier = Modifier.fillMaxWidth()) {
                             Text("Cover Banner", color = Color.Gray, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                             Spacer(modifier = Modifier.height(8.dp))
                             Surface(
-                                onClick = {
-                                    Log.d(TAG, "Click: Cover Section clicked")
-                                    showImageOptionsFor = "cover" },
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .aspectRatio(16f / 9f) // Enforcing 16:9 Ratio
-                                    .border(1.dp, outlineWhite, RoundedCornerShape(24.dp)),
+                                onClick = { showImageOptionsFor = "cover" },
+                                modifier = Modifier.fillMaxWidth().aspectRatio(16f / 9f).border(1.dp, outlineWhite, RoundedCornerShape(24.dp)),
                                 color = glassWhite,
                                 shape = RoundedCornerShape(24.dp)
                             ) {
                                 Box(contentAlignment = Alignment.Center) {
                                     when {
                                         coverUri != null -> Image(rememberAsyncImagePainter(coverUri), null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
-                                        shop.coverImage.isNotBlank() -> Base64Image(shop.coverImage, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+                                        shop.coverImage.isNotBlank() && !isCoverRemoved -> Base64Image(shop.coverImage, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
                                         else -> Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                             Icon(Icons.Default.AddPhotoAlternate, null, tint = amberOrange, modifier = Modifier.size(32.dp))
                                             Text("Add Cover", color = amberOrange, fontSize = 11.sp)
@@ -265,18 +339,23 @@ fun EditShopScreen(
                     Button(
                         onClick = {
                             Log.d(TAG, "ACTION: Sync All Changes Clicked")
-                            Log.d(TAG, "Data Payload: Name=$shopName, Contact=$contactNumber, City=$city, Times=$openingTime-$closingTime")
+                            // Text Updates
                             viewModel.updateShopInfo(shop.shopId, shopName, description, shop.category)
                             viewModel.updateContactDetails(shop.shopId, contactNumber, email)
                             viewModel.updateShopAddress(shop.shopId, address, city, pincode)
                             viewModel.updateOperatingHours(shop.shopId, openingTime, closingTime)
-                            logoUri?.let {
-                                Log.d(TAG, "Action: Uploading new logo")
-                                viewModel.uploadLogo(shop.shopId, it)
+
+                            // Safely handle uploads and deletions
+                            if (isCoverRemoved && coverUri == null) {
+                                viewModel.removeCover(shop.shopId)
+                            } else if (coverUri != null) {
+                                viewModel.uploadCover(shop.shopId, coverUri!!)
                             }
-                            coverUri?.let {
-                                Log.d(TAG, "Action: Uploading new cover image")
-                                viewModel.uploadCover(shop.shopId, it)
+
+                            if (isLogoRemoved && logoUri == null) {
+                                viewModel.removeLogo(shop.shopId)
+                            } else if (logoUri != null) {
+                                viewModel.uploadLogo(shop.shopId, logoUri!!)
                             }
                         },
                         modifier = Modifier.fillMaxWidth().height(60.dp),
@@ -284,8 +363,11 @@ fun EditShopScreen(
                         colors = ButtonDefaults.buttonColors(containerColor = amberOrange),
                         enabled = updateState !is Resource.Loading
                     ) {
-                        if (updateState is Resource.Loading) CircularProgressIndicator(color = Color.White, modifier = Modifier.size(24.dp))
-                        else Text("SAVE ALL CHANGES", fontWeight = FontWeight.Black, letterSpacing = 1.sp)
+                        if (updateState is Resource.Loading || coverUploadState is Resource.Loading || logoUploadState is Resource.Loading) {
+                            CircularProgressIndicator(color = Color.White, modifier = Modifier.size(24.dp))
+                        } else {
+                            Text("SAVE ALL CHANGES", fontWeight = FontWeight.Black, letterSpacing = 1.sp)
+                        }
                     }
 
                     Spacer(modifier = Modifier.height(40.dp))
@@ -299,15 +381,22 @@ fun EditShopScreen(
             showDialog = true,
             onDismiss = { showImageOptionsFor = null },
             onCameraClick = {
-                Log.d(TAG, "Dialog: Camera Selected for $type")
-                showCameraFor = type; showImageOptionsFor = null },
+                showCameraFor = type
+                showImageOptionsFor = null
+            },
             onGalleryClick = {
-                Log.d(TAG, "Dialog: Gallery Selected for $type")
+                pickingFor = type
                 photoPickerLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                showImageOptionsFor = null
             },
             onRemoveClick = {
-                Log.d(TAG, "Dialog: Remove Image for $type")
-                if (type == "logo") logoUri = null else coverUri = null
+                if (type == "logo") {
+                    logoUri = null
+                    isLogoRemoved = true
+                } else {
+                    coverUri = null
+                    isCoverRemoved = true
+                }
                 showImageOptionsFor = null
             }
         )
@@ -329,7 +418,6 @@ fun GlassySectionCard(title: String, outline: Color, content: @Composable Column
         }
     }
 }
-
 
 // --- PREVIEW ---
 @Preview(showBackground = true)
