@@ -91,13 +91,18 @@ fun EditShopScreen(
     var showCameraFor by remember { mutableStateOf<String?>(null) }
     var showImageOptionsFor by remember { mutableStateOf<String?>(null) }
 
-    // ✅ PHOTO PICKER LAUNCHER (Defined at top level of Composable)
+    val TAG = "EditShopScreen_Log"
     val photoPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickVisualMedia(),
         onResult = { uri ->
-            when (showImageOptionsFor) {
-                "logo" -> logoUri = uri
-                "cover" -> coverUri = uri
+            if (uri != null) {
+                Log.d(TAG, "Gallery Success: Image picked for $showImageOptionsFor -> $uri")
+                when (showImageOptionsFor) {
+                    "logo" -> logoUri = uri
+                    "cover" -> coverUri = uri
+                }
+            } else {
+                Log.d(TAG, "Gallery Cancelled: No image selected")
             }
             showImageOptionsFor = null
         }
@@ -106,16 +111,33 @@ fun EditShopScreen(
     val updateState by viewModel.updateShopState.collectAsState()
 
     LaunchedEffect(updateState) {
-        if (updateState is Resource.Success) navController.popBackStack()
+        when (updateState) {
+            is Resource.Success -> {
+                Log.d(TAG, "Update State: SUCCESS! Navigating back.")
+                navController.popBackStack()
+            }
+            is Resource.Error -> {
+                Log.e(TAG, "Update State: ERROR -> ${(updateState as Resource.Error).message}")
+            }
+            is Resource.Loading -> {
+                Log.d(TAG, "Update State: LOADING...")
+            }
+            else -> {}
+        }
     }
 
     if (showCameraFor != null) {
+        Log.d(TAG, "Opening Camera for: $showCameraFor")
         CameraCaptureScreen(
             onImageCaptured = { uri ->
+                Log.d(TAG, "Camera Success: Captured for $showCameraFor -> $uri")
                 if (showCameraFor == "logo") logoUri = uri else coverUri = uri
                 showCameraFor = null
             },
-            onBackClick = { showCameraFor = null }
+            onBackClick = {
+                Log.d(TAG, "Camera Cancelled: User clicked back")
+                showCameraFor = null
+            }
         )
     } else {
         Box(modifier = Modifier.fillMaxSize().background(deepBlack)) {
@@ -160,7 +182,9 @@ fun EditShopScreen(
                             )
                             Spacer(modifier = Modifier.height(8.dp))
                             Surface(
-                                onClick = { showImageOptionsFor = "logo" },
+                                onClick = {
+                                    Log.d(TAG, "Click: Logo Section clicked")
+                                    showImageOptionsFor = "logo" },
                                 modifier = Modifier
                                     .size(120.dp) // Fixed square size for Logo
                                     .aspectRatio(1f) // Enforcing 1:1
@@ -183,7 +207,9 @@ fun EditShopScreen(
                             Text("Cover Banner", color = Color.Gray, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                             Spacer(modifier = Modifier.height(8.dp))
                             Surface(
-                                onClick = { showImageOptionsFor = "cover" },
+                                onClick = {
+                                    Log.d(TAG, "Click: Cover Section clicked")
+                                    showImageOptionsFor = "cover" },
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .aspectRatio(16f / 9f) // Enforcing 16:9 Ratio
@@ -238,20 +264,28 @@ fun EditShopScreen(
 
                     Button(
                         onClick = {
+                            Log.d(TAG, "ACTION: Sync All Changes Clicked")
+                            Log.d(TAG, "Data Payload: Name=$shopName, Contact=$contactNumber, City=$city, Times=$openingTime-$closingTime")
                             viewModel.updateShopInfo(shop.shopId, shopName, description, shop.category)
                             viewModel.updateContactDetails(shop.shopId, contactNumber, email)
                             viewModel.updateShopAddress(shop.shopId, address, city, pincode)
                             viewModel.updateOperatingHours(shop.shopId, openingTime, closingTime)
-                            logoUri?.let { viewModel.uploadLogo(shop.shopId, it) }
-                            coverUri?.let { viewModel.uploadCover(shop.shopId, it) }
+                            logoUri?.let {
+                                Log.d(TAG, "Action: Uploading new logo")
+                                viewModel.uploadLogo(shop.shopId, it)
+                            }
+                            coverUri?.let {
+                                Log.d(TAG, "Action: Uploading new cover image")
+                                viewModel.uploadCover(shop.shopId, it)
+                            }
                         },
                         modifier = Modifier.fillMaxWidth().height(60.dp),
                         shape = RoundedCornerShape(16.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = amberOrange),
-                        enabled = !(updateState is Resource.Loading)
+                        enabled = updateState !is Resource.Loading
                     ) {
                         if (updateState is Resource.Loading) CircularProgressIndicator(color = Color.White, modifier = Modifier.size(24.dp))
-                        else Text("SYNC ALL CHANGES", fontWeight = FontWeight.Black, letterSpacing = 1.sp)
+                        else Text("SAVE ALL CHANGES", fontWeight = FontWeight.Black, letterSpacing = 1.sp)
                     }
 
                     Spacer(modifier = Modifier.height(40.dp))
@@ -260,16 +294,19 @@ fun EditShopScreen(
         }
     }
 
-    // ✅ DIALOGS (Inside EditShopScreen scope, can access photoPickerLauncher)
     showImageOptionsFor?.let { type ->
         ImagePickerDialog(
             showDialog = true,
             onDismiss = { showImageOptionsFor = null },
-            onCameraClick = { showCameraFor = type; showImageOptionsFor = null },
+            onCameraClick = {
+                Log.d(TAG, "Dialog: Camera Selected for $type")
+                showCameraFor = type; showImageOptionsFor = null },
             onGalleryClick = {
+                Log.d(TAG, "Dialog: Gallery Selected for $type")
                 photoPickerLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
             },
             onRemoveClick = {
+                Log.d(TAG, "Dialog: Remove Image for $type")
                 if (type == "logo") logoUri = null else coverUri = null
                 showImageOptionsFor = null
             }
