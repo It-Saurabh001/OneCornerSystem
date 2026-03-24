@@ -99,7 +99,7 @@ class ShopViewModel @Inject constructor(
         Log.d(TAG, "🏪 Setting up bookings listener for shopId: $shopId")
 
         if (shopId.isBlank()) {
-            Log.e(TAG, "❌ shopId is blank")
+            Log.e(TAG, "shopId is blank")
             return
         }
 
