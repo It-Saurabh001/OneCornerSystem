@@ -1,5 +1,6 @@
 package com.saurabh.onecornersystem.presentation.navigation
 
+import android.net.Uri
 import android.util.Log
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -30,6 +31,7 @@ import com.saurabh.onecornersystem.data.model.ShopType
 import com.saurabh.onecornersystem.presentation.auth.LoginScreen
 import com.saurabh.onecornersystem.presentation.auth.RegisterScreen
 import com.saurabh.onecornersystem.presentation.auth.viewmodel.AuthViewModel
+import com.saurabh.onecornersystem.presentation.common.ChatViewModel
 import com.saurabh.onecornersystem.presentation.common.ProfileScreen
 import com.saurabh.onecornersystem.presentation.customer.*
 import com.saurabh.onecornersystem.presentation.customer.viewmodel.CustomerShopViewModel
@@ -43,7 +45,8 @@ import com.saurabh.onecornersystem.utils.Resource
 fun AppNavGraph(
     authViewModel: AuthViewModel,
     customerShopViewModel: CustomerShopViewModel,
-    shopViewModel: ShopViewModel
+    shopViewModel: ShopViewModel,
+    chatViewModel: ChatViewModel
 ) {
     val navController = rememberNavController()
     val isLoggedIn by authViewModel.isLoggedIn.collectAsState(initial = false)
@@ -256,7 +259,7 @@ fun AppNavGraph(
             val ownerId = currentUser?.userId ?: ""
             Log.d("NavGraph_ShopOwnerHome", "ShopOwnerHome Screen displayed - ownerId: $ownerId")
 
-            ShopOwnerHomeScreen1(
+            ShopOwnerHomeScreen(
                 navController = navController,
                 ownerId = ownerId
             )
@@ -630,6 +633,47 @@ fun AppNavGraph(
             )
         }
 
+        composable(Screen.CustomerChatList.route) {
+            CustomerChatListScreen(navController = navController,chatViewModel)
+        }
+
+// Customer Chat (ViewModel handles everything)
+        composable(Screen.CustomerChat.route) {
+            CustomerChatScreen(navController = navController,chatViewModel)
+        }
+
+// Shop Chat List
+        composable(Screen.ShopChatList.route) {
+            ShopChatListScreen(navController = navController,chatViewModel)
+        }
+
+// Shop Chat (ViewModel handles everything)
+        composable(
+            route = Screen.ShopChat.route,
+            arguments = listOf(
+                navArgument("shopId") { type = NavType.StringType },
+                navArgument("shopName") { type = NavType.StringType },
+                navArgument("customerId") { type = NavType.StringType },
+                navArgument("customerName") { type = NavType.StringType }
+            )
+        ) { backStackEntry ->
+            val shopId = backStackEntry.arguments?.getString("shopId") ?: ""
+            val shopName = backStackEntry.arguments?.getString("shopName")?.let { android.net.Uri.decode(it) } ?: ""
+            val customerId = backStackEntry.arguments?.getString("customerId") ?: ""
+            val customerName = backStackEntry.arguments?.getString("customerName")?.let { android.net.Uri.decode(it) } ?: ""
+
+            Log.d("NavGraph_ShopChat", "ShopChat Screen displayed - shop: $shopName, customer: $customerName")
+
+            ShopChatScreen(
+                navController = navController,
+                shopId = shopId,
+                shopName = shopName,
+                customerId = customerId,
+                customerName = customerName,
+                viewModel = chatViewModel // Since you are passing it from AppNavGraph
+            )
+        }
+
         // ============= COMMON SCREENS =============
         composable(Screen.Cart.route) {
             Log.d("NavGraph_Cart", "Cart Screen displayed")
@@ -730,6 +774,7 @@ fun PlaceholderScreen(
     }
 }
 
+// ============= SCREEN ROUTES =============
 sealed class Screen(val route: String) {
     // Splash & Auth
     object Splash : Screen("splash")
@@ -754,7 +799,23 @@ sealed class Screen(val route: String) {
     }
     object AllServices : Screen("all_services")
 
-    // Customer Product Screens (for product-based shops)
+    // Customer Chat Routes
+    object CustomerChatList : Screen("customer_chat_list")
+    object CustomerChat : Screen("customer_chat")
+
+    // Shop Owner Chat Routes
+    object ShopChatList : Screen("shop_chat_list")
+    object ShopChat : Screen("shop_chat/{shopId}/{shopName}/{customerId}/{customerName}") {
+        fun passArgs(
+            shopId: String,
+            shopName: String,
+            customerId: String,
+            customerName: String
+        ): String {
+            return "shop_chat/$shopId/${Uri.encode(shopName)}/$customerId/${Uri.encode(customerName)}"
+        }
+    }
+    // Customer Product Screens
     object ShopDetails : Screen("shop_details/{shopId}") {
         fun passShopId(shopId: String) = "shop_details/$shopId"
     }
@@ -794,10 +855,6 @@ sealed class Screen(val route: String) {
         fun passItemId(itemId: String) = "edit_product/$itemId"
     }
 
-    object ServiceDetailsCustomer : Screen("service_details_customer/{itemId}") {
-        fun passItemId(itemId: String) = "service_details_customer/$itemId"
-    }
-
     // Services
     object ServiceList : Screen("services/{shopId}") {
         fun passShopId(shopId: String) = "services/$shopId"
@@ -807,6 +864,11 @@ sealed class Screen(val route: String) {
     }
     object EditService : Screen("edit_service/{itemId}") {
         fun passItemId(itemId: String) = "edit_service/$itemId"
+    }
+
+    // Customer Service Details
+    object ServiceDetailsCustomer : Screen("service_details_customer/{itemId}") {
+        fun passItemId(itemId: String) = "service_details_customer/$itemId"
     }
 
     // Common

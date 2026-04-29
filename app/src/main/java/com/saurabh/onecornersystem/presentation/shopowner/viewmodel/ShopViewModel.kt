@@ -26,7 +26,7 @@ import javax.inject.Inject
  * Handles shop creation, management, and real-time updates
  */
 @HiltViewModel
-class ShopViewModel @Inject constructor(
+                            class ShopViewModel @Inject constructor(
     private val shopRepository: ShopRepository
 ) : ViewModel() {
 
@@ -255,7 +255,7 @@ class ShopViewModel @Inject constructor(
         shopName: String,
         category: String,
         description: String,
-        address: String,
+        address: String,    
         city: String,
         pincode: String,
         contactNumber: String,
