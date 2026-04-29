@@ -27,6 +27,7 @@ import coil.compose.rememberAsyncImagePainter
 import com.saurabh.onecornersystem.data.model.Shop
 import com.saurabh.onecornersystem.data.model.ShopItem
 import com.saurabh.onecornersystem.data.model.ShopType
+import com.saurabh.onecornersystem.presentation.common.ChatViewModel
 import com.saurabh.onecornersystem.presentation.components.ErrorCard
 import com.saurabh.onecornersystem.presentation.customer.viewmodel.CustomerShopViewModel
 import com.saurabh.onecornersystem.presentation.shopowner.viewmodel.ShopItemViewModel
@@ -39,7 +40,8 @@ fun ServiceShopDetailsScreen(
     shopId: String,
     navController: NavController,
     shopViewModel: CustomerShopViewModel = hiltViewModel(),
-    itemViewModel: ShopItemViewModel = hiltViewModel()
+    itemViewModel: ShopItemViewModel = hiltViewModel(),
+    chatViewModel: ChatViewModel = hiltViewModel()
 ) {
     val shopState by shopViewModel.shopDetailsState.collectAsState()
     val servicesState by itemViewModel.servicesState.collectAsState()
@@ -101,6 +103,35 @@ fun ServiceShopDetailsScreen(
                     }
                 }
             )
+        },
+        // ========== FLOATING CHAT BUTTON ==========
+        floatingActionButton = {
+            when (val state = shopState) {
+                is Resource.Success -> {
+                    val shop = state.data
+                    ExtendedFloatingActionButton(
+                        onClick = {
+                            chatViewModel.startChatFromShop(
+                                shopId = shop.shopId,
+                                shopName = shop.shopName,
+                                shopImage = shop.logo
+                            )
+                            navController.navigate("customer_chat")
+                        },
+                        containerColor = Color(0xFFFF9100),
+                        contentColor = Color.White,
+                        shape = RoundedCornerShape(16.dp)
+                    ) {
+                        Icon(Icons.Default.Chat, contentDescription = null)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            "CHAT NOW",
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+                else -> {}
+            }
         }
     ) { paddingValues ->
         if (isLoading) {
@@ -255,10 +286,8 @@ fun ServiceShopDetailsScreen(
 
                                 Spacer(modifier = Modifier.height(12.dp))
 
-                                // Address with Map Icon
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
+                                // Address
+                                Row(verticalAlignment = Alignment.CenterVertically) {
                                     Icon(
                                         Icons.Default.LocationOn,
                                         contentDescription = null,
@@ -271,73 +300,32 @@ fun ServiceShopDetailsScreen(
                                         fontSize = 14.sp,
                                         modifier = Modifier.weight(1f)
                                     )
-                                    IconButton(onClick = { /* Open in Maps */ }) {
-                                        Icon(
-                                            Icons.Default.Map,
-                                            contentDescription = "View on Map",
-                                            modifier = Modifier.size(20.dp)
-                                        )
-                                    }
                                 }
 
                                 // Contact Info
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Icon(
-                                        Icons.Default.Phone,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(16.dp),
-                                        tint = MaterialTheme.colorScheme.primary
-                                    )
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(Icons.Default.Phone, null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary)
                                     Spacer(modifier = Modifier.width(4.dp))
-                                    Text(
-                                        text = shop.contactNumber,
-                                        fontSize = 14.sp
-                                    )
-
+                                    Text(text = shop.contactNumber, fontSize = 14.sp)
                                     Spacer(modifier = Modifier.width(16.dp))
-
-                                    Icon(
-                                        Icons.Default.Email,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(16.dp),
-                                        tint = MaterialTheme.colorScheme.primary
-                                    )
+                                    Icon(Icons.Default.Email, null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary)
                                     Spacer(modifier = Modifier.width(4.dp))
-                                    Text(
-                                        text = shop.email,
-                                        fontSize = 14.sp
-                                    )
+                                    Text(text = shop.email, fontSize = 14.sp)
                                 }
 
                                 // Timing
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Icon(
-                                        Icons.Default.Schedule,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(16.dp),
-                                        tint = MaterialTheme.colorScheme.primary
-                                    )
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(Icons.Default.Schedule, null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary)
                                     Spacer(modifier = Modifier.width(4.dp))
-                                    Text(
-                                        text = "${shop.openingTime} - ${shop.closingTime}",
-                                        fontSize = 14.sp
-                                    )
+                                    Text(text = "${shop.openingTime} - ${shop.closingTime}", fontSize = 14.sp)
                                 }
 
-                                // Description (if available)
+                                // Description
                                 if (shop.description.isNotBlank()) {
                                     Spacer(modifier = Modifier.height(12.dp))
+                                    Text("About", fontSize = 16.sp, fontWeight = FontWeight.Bold)
                                     Text(
-                                        text = "About",
-                                        fontSize = 16.sp,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                    Text(
-                                        text = shop.description,
+                                        shop.description,
                                         fontSize = 14.sp,
                                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
                                         lineHeight = 20.sp
@@ -353,20 +341,11 @@ fun ServiceShopDetailsScreen(
                 item {
                     Spacer(modifier = Modifier.height(8.dp))
                     Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp),
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(
-                            text = "Services Offered",
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                        TextButton(onClick = { /* View all services */ }) {
-                            Text("View All")
-                        }
+                        Text("Services Offered", fontSize = 18.sp, fontWeight = FontWeight.Bold)
                     }
                 }
 
@@ -374,9 +353,7 @@ fun ServiceShopDetailsScreen(
                 when (val state = servicesState) {
                     is Resource.Success -> {
                         if (state.data.isEmpty()) {
-                            item {
-                                EmptyServicesMessage()
-                            }
+                            item { EmptyServicesMessage() }
                         } else {
                             items(state.data) { service ->
                                 ServiceCard(
@@ -390,28 +367,19 @@ fun ServiceShopDetailsScreen(
                     }
                     is Resource.Loading -> {
                         item {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(32.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
+                            Box(modifier = Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
                                 CircularProgressIndicator()
                             }
                         }
                     }
                     is Resource.Error -> {
-                        item {
-                            ErrorCard(state.message)
-                        }
+                        item { ErrorCard(state.message) }
                     }
                     else -> {}
                 }
 
-                // Bottom Spacer
-                item {
-                    Spacer(modifier = Modifier.height(16.dp))
-                }
+                // Bottom spacer for FAB
+                item { Spacer(modifier = Modifier.height(80.dp)) }
             }
         }
     }

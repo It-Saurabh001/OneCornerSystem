@@ -30,9 +30,11 @@ data class Message(
     val text: String = "",
     val attachmentUrl: String = "",
     val attachmentType: String = "", // image, document, etc.
-    val isRead: Boolean = false,
-    val timeSent: Timestamp = Timestamp.now(),
-    val updatedAt: Timestamp = Timestamp.now()
+    @get:PropertyName("read")
+    @set:PropertyName("read")
+    var isRead: Boolean = false,
+    val timeSent: Timestamp ?= null,
+    val updatedAt: Timestamp ?= null
 )
 
 data class ChatParticipant(

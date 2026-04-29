@@ -2,8 +2,10 @@ package com.saurabh.onecornersystem.di
 
 import android.content.Context
 import com.google.firebase.firestore.FirebaseFirestore
+import com.saurabh.onecornersystem.data.repository.ChatRepository
 import com.saurabh.onecornersystem.data.repository.ShopItemRepository
 import com.saurabh.onecornersystem.data.repository.ShopRepository
+import com.saurabh.onecornersystem.domain.repository.ChatRepositoryImpl
 import com.saurabh.onecornersystem.domain.repository.ShopItemRepositoryImpl
 import com.saurabh.onecornersystem.domain.repository.ShopRepositoryImpl
 import dagger.Module
@@ -40,35 +42,13 @@ object RepositoryModule {
         )
     }
 
+    @Provides
+    @Singleton
+    fun provideChatRepository(
+        firestore: FirebaseFirestore
+    ): ChatRepository {
+        return ChatRepositoryImpl(firestore)
+    }
 
-//    @Provides
-//    @Singleton
-//    fun provideProductRepository(firestore: FirebaseFirestore): ProductRepository {
-//        return ProductRepositoryImpl(firestore)
-//    }
-//
-//    @Provides
-//    @Singleton
-//    fun provideOrderRepository(firestore: FirebaseFirestore): OrderRepository {
-//        return OrderRepositoryImpl(firestore)
-//    }
-//
-//    @Provides
-//    @Singleton
-//    fun provideChatRepository(firestore: FirebaseFirestore): ChatRepository {
-//        return ChatRepositoryImpl(firestore)
-//    }
-//
-//    @Provides
-//    @Singleton
-//    fun provideInventoryRepository(firestore: FirebaseFirestore): InventoryRepository {
-//        return InventoryRepositoryImpl(firestore)
-//    }
-//
-//    @Provides
-//    @Singleton
-//    fun provideAnalyticsRepository(firestore: FirebaseFirestore): AnalyticsRepository {
-//        return AnalyticsRepositoryImpl(firestore)
-//    }
 }
 
