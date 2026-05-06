@@ -3,11 +3,13 @@ package com.saurabh.onecornersystem.presentation.shopowner
 import android.Manifest
 import android.annotation.SuppressLint
 import android.content.Context
+import android.content.IntentSender
 import android.content.pm.PackageManager
 import android.location.LocationManager
 import android.net.Uri
 import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
@@ -36,6 +38,7 @@ import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.filled.ShoppingBag
 import androidx.compose.material.icons.filled.Store
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -48,6 +51,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -70,12 +74,19 @@ import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import coil.compose.rememberAsyncImagePainter
+import com.google.android.gms.common.api.ResolvableApiException
+import com.google.android.gms.location.LocationRequest
 import com.google.android.gms.location.LocationServices
+import com.google.android.gms.location.LocationSettingsRequest
+import com.google.android.gms.location.Priority
+import com.google.android.gms.tasks.CancellationTokenSource
 import com.saurabh.onecornersystem.data.model.ShopType
 import com.saurabh.onecornersystem.presentation.CameraCaptureScreen
 import com.saurabh.onecornersystem.presentation.ImagePickerDialog
 import com.saurabh.onecornersystem.presentation.shopowner.viewmodel.ShopViewModel
 import com.saurabh.onecornersystem.utils.Resource
+
+private const val TAG = "CreateShopScreen"
 
 @SuppressLint("MissingPermission")
 @OptIn(ExperimentalMaterial3Api::class)
@@ -101,52 +112,87 @@ fun CreateShopScreen(
     var longitude by remember { mutableStateOf(0.0) }
     var locationFetched by remember { mutableStateOf(false) }
     var fetchingLocation by remember { mutableStateOf(false) }
+    var locationError by remember { mutableStateOf<String?>(null) }
+    var showLocationDialog by remember { mutableStateOf(false) }
 
     var logoUri by remember { mutableStateOf<Uri?>(null) }
     var coverUri by remember { mutableStateOf<Uri?>(null) }
-    var showCameraFor by remember { mutableStateOf<String?>(null) } // "logo" or "cover"
+    var showCameraFor by remember { mutableStateOf<String?>(null) }
     var showImageOptionsFor by remember { mutableStateOf<String?>(null) }
+
+    // Location settings resolution launcher (opens system GPS toggle)
+    val locationSettingsLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartIntentSenderForResult()
+    ) { result ->
+        if (result.resultCode == android.app.Activity.RESULT_OK) {
+            Log.d(TAG, "📍 LOCATION: User enabled location services")
+            fetchingLocation = true
+            locationError = null
+            fetchCurrentLocation(context) { lat, lng, error ->
+                latitude = lat
+                longitude = lng
+                locationFetched = lat != 0.0 || lng != 0.0
+                fetchingLocation = false
+                locationError = error
+                Log.d(TAG, "📍 LOCATION: After settings enable - lat=$lat, lng=$lng, error=$error")
+            }
+        } else {
+            Log.d(TAG, "📍 LOCATION: User declined to enable location")
+            locationError = "Location services are required to register your shop"
+        }
+    }
 
     // Location permission launcher
     val locationPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestMultiplePermissions()
     ) { permissions ->
-        val fineLocationGranted = permissions[Manifest.permission.ACCESS_FINE_LOCATION] ?: false
-        val coarseLocationGranted = permissions[Manifest.permission.ACCESS_COARSE_LOCATION] ?: false
+        val fineGranted = permissions[Manifest.permission.ACCESS_FINE_LOCATION] ?: false
+        val coarseGranted = permissions[Manifest.permission.ACCESS_COARSE_LOCATION] ?: false
+        Log.d(TAG, "📍 LOCATION: Permission result - fine=$fineGranted, coarse=$coarseGranted")
 
-        if (fineLocationGranted || coarseLocationGranted) {
-            // Fetch location
-            fetchingLocation = true
-            fetchCurrentLocation(context) { lat, lng ->
+        if (fineGranted || coarseGranted) {
+            // Permission granted — now check if location services are ON
+            checkAndFetchLocation(context, locationSettingsLauncher) { lat, lng, error ->
                 latitude = lat
                 longitude = lng
-                locationFetched = true
+                locationFetched = lat != 0.0 || lng != 0.0
                 fetchingLocation = false
-                Log.d("CreateShopScreen", "Location fetched: $lat, $lng")
+                locationError = error
             }
+            fetchingLocation = true
+            locationError = null
+        } else {
+            locationError = "Location permission is needed so customers can find your shop"
+            Log.d(TAG, "📍 LOCATION: Permission denied")
         }
     }
 
-    // Function to request location
+    // Function to request location (checks permission → services → fetches)
     fun requestLocation() {
-        val hasFineLocation = ContextCompat.checkSelfPermission(
+        Log.d(TAG, "📍 LOCATION: requestLocation() called")
+        locationError = null
+
+        val hasPermission = ContextCompat.checkSelfPermission(
             context, Manifest.permission.ACCESS_FINE_LOCATION
-        ) == PackageManager.PERMISSION_GRANTED
+        ) == PackageManager.PERMISSION_GRANTED ||
+            ContextCompat.checkSelfPermission(
+                context, Manifest.permission.ACCESS_COARSE_LOCATION
+            ) == PackageManager.PERMISSION_GRANTED
 
-        val hasCoarseLocation = ContextCompat.checkSelfPermission(
-            context, Manifest.permission.ACCESS_COARSE_LOCATION
-        ) == PackageManager.PERMISSION_GRANTED
+        Log.d(TAG, "📍 LOCATION: Permission status=$hasPermission")
 
-        if (hasFineLocation || hasCoarseLocation) {
+        if (hasPermission) {
             fetchingLocation = true
-            fetchCurrentLocation(context) { lat, lng ->
+            checkAndFetchLocation(context, locationSettingsLauncher) { lat, lng, error ->
                 latitude = lat
                 longitude = lng
-                locationFetched = true
+                locationFetched = lat != 0.0 || lng != 0.0
                 fetchingLocation = false
-                Log.d("CreateShopScreen", "Location fetched: $lat, $lng")
+                locationError = error
+                Log.d(TAG, "📍 LOCATION: Result - lat=$lat, lng=$lng, fetched=$locationFetched, error=$error")
             }
         } else {
+            Log.d(TAG, "📍 LOCATION: Requesting permission...")
             locationPermissionLauncher.launch(
                 arrayOf(
                     Manifest.permission.ACCESS_FINE_LOCATION,
@@ -154,6 +200,12 @@ fun CreateShopScreen(
                 )
             )
         }
+    }
+
+    // Auto-fetch location when screen opens
+    LaunchedEffect(Unit) {
+        Log.d(TAG, "📍 LOCATION: Screen opened — auto-fetching location")
+        requestLocation()
     }
 
     val photoPickerLauncher = rememberLauncherForActivityResult(
@@ -368,10 +420,27 @@ fun CreateShopScreen(
 
                         if (locationFetched) {
                             Text(
-                                text = "Coordinates: ${String.format("%.6f", latitude)}, ${String.format("%.6f", longitude)}",
+                                text = "✅ Coordinates: ${String.format("%.6f", latitude)}, ${String.format("%.6f", longitude)}",
                                 fontSize = 12.sp,
-                                color = Color.Gray
+                                color = Color(0xFF4CAF50)
                             )
+                        }
+
+                        // Show location error
+                        if (locationError != null) {
+                            Card(
+                                colors = CardDefaults.cardColors(
+                                    containerColor = MaterialTheme.colorScheme.errorContainer
+                                ),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text(
+                                    text = "⚠️ $locationError",
+                                    color = MaterialTheme.colorScheme.onErrorContainer,
+                                    fontSize = 12.sp,
+                                    modifier = Modifier.padding(12.dp)
+                                )
+                            }
                         }
 
                         OutlinedTextField(
@@ -469,7 +538,7 @@ fun CreateShopScreen(
                         )
                     },
                     modifier = Modifier.fillMaxWidth(),
-                    enabled = shopName.isNotBlank() && address.isNotBlank() && city.isNotBlank() && pincode.isNotBlank() && contactNumber.isNotBlank() && !(createState is Resource.Loading)
+                    enabled = shopName.isNotBlank() && address.isNotBlank() && city.isNotBlank() && pincode.isNotBlank() && contactNumber.isNotBlank() && locationFetched && !(createState is Resource.Loading)
                 ) {
                     if (createState is Resource.Loading) {
                         CircularProgressIndicator(modifier = Modifier.size(24.dp), color = MaterialTheme.colorScheme.onPrimary)
@@ -503,46 +572,102 @@ fun CreateShopScreen(
 }
 
 /**
- * Fetch current location using FusedLocationProviderClient
+ * Check location settings, then fetch location. If GPS is off, prompts user to enable it.
+ */
+private fun checkAndFetchLocation(
+    context: Context,
+    settingsLauncher: androidx.activity.result.ActivityResultLauncher<IntentSenderRequest>,
+    onResult: (latitude: Double, longitude: Double, error: String?) -> Unit
+) {
+    val locationRequest = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 10000).build()
+    val settingsRequest = LocationSettingsRequest.Builder()
+        .addLocationRequest(locationRequest)
+        .setAlwaysShow(true)
+        .build()
+
+    LocationServices.getSettingsClient(context)
+        .checkLocationSettings(settingsRequest)
+        .addOnSuccessListener {
+            Log.d(TAG, "📍 LOCATION: Location services enabled — fetching location")
+            fetchCurrentLocation(context, onResult)
+        }
+        .addOnFailureListener { exception ->
+            if (exception is ResolvableApiException) {
+                Log.d(TAG, "📍 LOCATION: Location services OFF — showing enable dialog")
+                try {
+                    settingsLauncher.launch(
+                        IntentSenderRequest.Builder(exception.resolution.intentSender).build()
+                    )
+                } catch (e: Exception) {
+                    Log.e(TAG, "📍 LOCATION: Failed to launch settings", e)
+                    onResult(0.0, 0.0, "Could not open location settings")
+                }
+            } else {
+                Log.e(TAG, "📍 LOCATION: Settings check failed", exception)
+                onResult(0.0, 0.0, "Location services are unavailable")
+            }
+        }
+}
+
+/**
+ * Fetch current location using FusedLocationProviderClient.
+ * Uses getCurrentLocation (fresh) with lastLocation as fallback.
+ * Never silently returns 0,0 — reports errors via callback.
  */
 @SuppressLint("MissingPermission")
 private fun fetchCurrentLocation(
     context: Context,
-    onLocationFetched: (latitude: Double, longitude: Double) -> Unit
+    onResult: (latitude: Double, longitude: Double, error: String?) -> Unit
 ) {
     try {
         val fusedLocationClient = LocationServices.getFusedLocationProviderClient(context)
+        val cancellationTokenSource = CancellationTokenSource()
 
-        fusedLocationClient.lastLocation
-            .addOnSuccessListener { location ->
-                if (location != null) {
-                    onLocationFetched(location.latitude, location.longitude)
-                    Log.d("CreateShopScreen", "Location success: ${location.latitude}, ${location.longitude}")
-                } else {
-                    // Try to get fresh location if lastLocation is null
-                    Log.d("CreateShopScreen", "Last location is null, trying fresh location")
+        Log.d(TAG, "📍 LOCATION: Requesting fresh location...")
 
-                    // Use LocationManager as fallback
-                    val locationManager = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
-                    val lastKnownLocation = locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER)
-                        ?: locationManager.getLastKnownLocation(LocationManager.NETWORK_PROVIDER)
+        // Try fresh location first (most reliable)
+        fusedLocationClient.getCurrentLocation(
+            Priority.PRIORITY_HIGH_ACCURACY,
+            cancellationTokenSource.token
+        ).addOnSuccessListener { location ->
+            if (location != null) {
+                Log.d(TAG, "📍 LOCATION: Fresh location success: ${location.latitude}, ${location.longitude}")
+                onResult(location.latitude, location.longitude, null)
+            } else {
+                Log.d(TAG, "📍 LOCATION: Fresh location null, trying lastLocation...")
+                // Fallback to lastLocation
+                fusedLocationClient.lastLocation
+                    .addOnSuccessListener { lastLoc ->
+                        if (lastLoc != null) {
+                            Log.d(TAG, "📍 LOCATION: lastLocation success: ${lastLoc.latitude}, ${lastLoc.longitude}")
+                            onResult(lastLoc.latitude, lastLoc.longitude, null)
+                        } else {
+                            // Final fallback: LocationManager
+                            Log.d(TAG, "📍 LOCATION: lastLocation null, trying LocationManager...")
+                            val locationManager = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
+                            val managerLoc = locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER)
+                                ?: locationManager.getLastKnownLocation(LocationManager.NETWORK_PROVIDER)
 
-                    if (lastKnownLocation != null) {
-                        onLocationFetched(lastKnownLocation.latitude, lastKnownLocation.longitude)
-                        Log.d("CreateShopScreen", "LocationManager location: ${lastKnownLocation.latitude}, ${lastKnownLocation.longitude}")
-                    } else {
-                        // Default to a fallback location (can be changed)
-                        Log.d("CreateShopScreen", "Could not get location, using default")
-                        onLocationFetched(0.0, 0.0)
+                            if (managerLoc != null) {
+                                Log.d(TAG, "📍 LOCATION: LocationManager success: ${managerLoc.latitude}, ${managerLoc.longitude}")
+                                onResult(managerLoc.latitude, managerLoc.longitude, null)
+                            } else {
+                                Log.e(TAG, "📍 LOCATION: All methods failed")
+                                onResult(0.0, 0.0, "Could not detect location. Please ensure GPS is on and try again.")
+                            }
+                        }
                     }
-                }
+                    .addOnFailureListener { e ->
+                        Log.e(TAG, "📍 LOCATION: lastLocation failed", e)
+                        onResult(0.0, 0.0, "Failed to get location: ${e.message}")
+                    }
             }
-            .addOnFailureListener { e ->
-                Log.e("CreateShopScreen", "Failed to get location", e)
-                onLocationFetched(0.0, 0.0)
-            }
+        }.addOnFailureListener { e ->
+            Log.e(TAG, "📍 LOCATION: getCurrentLocation failed", e)
+            onResult(0.0, 0.0, "Location request failed: ${e.message}")
+        }
     } catch (e: Exception) {
-        Log.e("CreateShopScreen", "Exception in fetchCurrentLocation", e)
-        onLocationFetched(0.0, 0.0)
+        Log.e(TAG, "📍 LOCATION: Exception in fetchCurrentLocation", e)
+        onResult(0.0, 0.0, "Location error: ${e.message}")
     }
 }

@@ -87,12 +87,12 @@ fun MyBookingsScreen(
                     val navItems = listOf(
                         Triple("Home", Icons.Default.Home, "customer_home"),
                         Triple("Bookings", Icons.Default.Bookmark, "my_bookings"),
-                        Triple("Favorites", Icons.Default.Favorite, "favorites"),
+                        Triple("Messages", Icons.Default.Chat, "customer_chat_list"),
                         Triple("Profile", Icons.Default.Person, "profile")
                     )
                     navItems.forEach { (label, icon, route) ->
                         NavigationBarItem(
-                            selected = label == "Bookings", // Yahan "Bookings" active rahega
+                            selected = label == "Bookings",
                             onClick = {
                                 if (label != "Bookings") {
                                     navController.navigate(route) {
@@ -137,7 +137,14 @@ fun MyBookingsScreen(
                         Tab(
                             selected = selectedTab == index,
                             onClick = { selectedTab = index },
-                            text = { Text(title, fontSize = 14.sp, fontWeight = if(selectedTab == index) FontWeight.Bold else FontWeight.Normal, color = if(selectedTab == index) Color.White else Color.Gray) }
+                            text = {
+                                Text(
+                                    title,
+                                    fontSize = 14.sp,
+                                    fontWeight = if(selectedTab == index) FontWeight.Bold else FontWeight.Normal,
+                                    color = if(selectedTab == index) Color.White else Color.Gray
+                                )
+                            }
                         )
                     }
                 }
@@ -159,9 +166,20 @@ fun MyBookingsScreen(
                                 verticalArrangement = Arrangement.spacedBy(16.dp)
                             ) {
                                 items(filtered) { booking ->
-                                    BookingCardGlass(booking, electricBlue, outlineWhite) {
-                                        navController.navigate("booking_details/${booking.bookingId}")
-                                    }
+                                    BookingCardGlass(
+                                        booking = booking,
+                                        blue = electricBlue,
+                                        outline = outlineWhite,
+                                        onClick = {
+                                            navController.navigate("booking_details/${booking.bookingId}")
+                                        },
+                                        onChatClick = {
+                                            val encodedName = android.net.Uri.encode(booking.shopName)
+                                            navController.navigate(
+                                                "customer_chat?bookingId=${booking.bookingId}&shopId=${booking.shopId}&shopName=$encodedName&shopImage="
+                                            )
+                                        }
+                                    )
                                 }
                             }
                         }
@@ -178,16 +196,30 @@ fun MyBookingsScreen(
     }
 }
 
+// ========== UPDATED BOOKING CARD WITH CHAT BUTTON ==========
 @Composable
-fun BookingCardGlass(booking: Booking, blue: Color, outline: Color, onClick: () -> Unit) {
+fun BookingCardGlass(
+    booking: Booking,
+    blue: Color,
+    outline: Color,
+    onClick: () -> Unit,
+    onChatClick: () -> Unit  // 👈 New chat callback
+) {
     Surface(
         onClick = onClick,
-        modifier = Modifier.fillMaxWidth().border(1.dp, Brush.linearGradient(listOf(outline, Color.Transparent)), RoundedCornerShape(24.dp)),
+        modifier = Modifier
+            .fillMaxWidth()
+            .border(1.dp, Brush.linearGradient(listOf(outline, Color.Transparent)), RoundedCornerShape(24.dp)),
         color = Color.White.copy(alpha = 0.05f),
         shape = RoundedCornerShape(24.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            // Top Row - Shop name + Status
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(booking.shopName, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 17.sp)
                     Text(booking.serviceName, color = Color.Gray, fontSize = 13.sp)
@@ -197,6 +229,7 @@ fun BookingCardGlass(booking: Booking, blue: Color, outline: Color, onClick: () 
 
             Spacer(modifier = Modifier.height(16.dp))
 
+            // Middle Row - Date, Time, Price
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Default.CalendarToday, null, tint = blue, modifier = Modifier.size(14.dp))
@@ -210,6 +243,7 @@ fun BookingCardGlass(booking: Booking, blue: Color, outline: Color, onClick: () 
                 Text("₹${booking.servicePrice}", color = blue, fontWeight = FontWeight.Black, fontSize = 16.sp)
             }
 
+            // Home service address
             if (booking.serviceLocation == ServiceLocation.CUSTOMER_HOME) {
                 Spacer(modifier = Modifier.height(12.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -218,10 +252,42 @@ fun BookingCardGlass(booking: Booking, blue: Color, outline: Color, onClick: () 
                     Text(booking.serviceAddress.take(35) + "...", color = Color.Gray, fontSize = 11.sp)
                 }
             }
+
+            // 👇 CHAT BUTTON - Only for active bookings
+            if (booking.status == BookingStatus.PENDING || booking.status == BookingStatus.CONFIRMED) {
+                Spacer(modifier = Modifier.height(12.dp))
+                HorizontalDivider(color = outline, thickness = 0.5.dp)
+                Spacer(modifier = Modifier.height(12.dp))
+
+                OutlinedButton(
+                    onClick = onChatClick,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, blue.copy(alpha = 0.4f)),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        contentColor = blue
+                    )
+                ) {
+                    Icon(
+                        Icons.Default.Chat,
+                        contentDescription = "Chat",
+                        tint = blue,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        "MESSAGE SHOP",
+                        color = blue,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 13.sp
+                    )
+                }
+            }
         }
     }
 }
 
+// ========== BOOKING STATUS CHIP ==========
 @Composable
 fun BookingStatusChipLiquid(status: BookingStatus) {
     val color = when (status) {
@@ -245,9 +311,14 @@ fun BookingStatusChipLiquid(status: BookingStatus) {
     }
 }
 
+// ========== EMPTY STATE ==========
 @Composable
 fun EmptyBookingsGlass(tab: String, blue: Color, outline: Color, onBrowse: () -> Unit) {
-    Column(modifier = Modifier.fillMaxSize().padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+    Column(
+        modifier = Modifier.fillMaxSize().padding(32.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
         Icon(Icons.Default.BookmarkBorder, null, modifier = Modifier.size(80.dp), tint = Color.Gray.copy(alpha = 0.3f))
         Spacer(modifier = Modifier.height(16.dp))
         Text("No $tab Bookings", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
@@ -259,8 +330,7 @@ fun EmptyBookingsGlass(tab: String, blue: Color, outline: Color, onBrowse: () ->
     }
 }
 
-// --- PREVIEW ---
-
+// ========== PREVIEW ==========
 @Preview(showBackground = true, showSystemUi = true)
 @Composable
 fun MyBookingsLiquidPreview() {
@@ -268,16 +338,25 @@ fun MyBookingsLiquidPreview() {
         Box(modifier = Modifier.fillMaxSize().background(Color(0xFF0A0A0A))) {
             Column(modifier = Modifier.padding(16.dp)) {
                 BookingCardGlass(
-                    Booking(shopName = "Cyber Mechanic", serviceName = "Engine Tuning", servicePrice = 1500.0, bookingDate = "2026-03-20", bookingTime = "10:30", status = BookingStatus.CONFIRMED),
+                    Booking(
+                        shopName = "Cyber Mechanic",
+                        serviceName = "Engine Tuning",
+                        servicePrice = 1500.0,
+                        bookingDate = "2026-03-20",
+                        bookingTime = "10:30",
+                        status = BookingStatus.CONFIRMED
+                    ),
                     Color(0xFF2979FF),
-                    Color.White.copy(0.1f)
-                ) {}
+                    Color.White.copy(0.1f),
+                    onClick = {},
+                    onChatClick = {}
+                )
             }
         }
     }
 }
 
-// Helper functions (same as your logic)
+// ========== HELPER FUNCTIONS ==========
 private fun filterBookingsByTab(bookings: List<Booking>, tabIndex: Int): List<Booking> {
     return when (tabIndex) {
         0 -> bookings

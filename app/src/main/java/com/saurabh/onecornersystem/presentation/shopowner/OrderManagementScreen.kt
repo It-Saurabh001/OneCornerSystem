@@ -35,19 +35,21 @@ import com.saurabh.onecornersystem.utils.Resource
 import java.text.SimpleDateFormat
 import java.util.*
 import androidx.compose.ui.tooling.preview.Preview
+import com.saurabh.onecornersystem.presentation.common.ChatViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun OrderManagementScreen(
     shopId: String,
     navController: NavController,
-    viewModel: ShopViewModel = hiltViewModel()
+    viewModel: ShopViewModel = hiltViewModel(),
+    chatViewModel: ChatViewModel = hiltViewModel()
 ) {
     val shopBookingsState by viewModel.shopBookingsState.collectAsStateWithLifecycle()
     val pendingCount by viewModel.pendingBookingsCount.collectAsStateWithLifecycle()
     val updateStatusState by viewModel.updateBookingStatusState.collectAsStateWithLifecycle()
 
-    // --- THEME COLORS ---
+    // Theme Colors
     val amberOrange = Color(0xFFFF9100)
     val deepBlack = Color(0xFF0A0A0A)
     val glassWhite = Color.White.copy(alpha = 0.05f)
@@ -64,7 +66,7 @@ fun OrderManagementScreen(
     }
 
     Box(modifier = Modifier.fillMaxSize().background(deepBlack)) {
-        // --- LIQUID BLOBS ---
+        // Liquid Blobs
         Box(modifier = Modifier.size(300.dp).offset(x = 150.dp, y = (-50).dp).blur(100.dp).background(amberOrange.copy(alpha = 0.12f), CircleShape))
         Box(modifier = Modifier.size(250.dp).align(Alignment.BottomStart).offset(x = (-50).dp, y = 100.dp).blur(80.dp).background(amberOrange.copy(alpha = 0.08f), CircleShape))
 
@@ -88,13 +90,25 @@ fun OrderManagementScreen(
                         IconButton(onClick = { navController.popBackStack() }) {
                             Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back", tint = Color.White)
                         }
+                    },
+                    actions = {
+                        // 💬 Messages button in top bar
+                        IconButton(onClick = {
+                            navController.navigate("shop_chat_list")
+                        }) {
+                            Icon(
+                                Icons.Default.Chat,
+                                contentDescription = "Messages",
+                                tint = amberOrange
+                            )
+                        }
                     }
                 )
             }
         ) { paddingValues ->
             Column(modifier = Modifier.fillMaxSize().padding(paddingValues)) {
 
-                // 1. LIQUID TAB ROW
+                // Tab Row
                 TabRow(
                     selectedTabIndex = selectedTab,
                     containerColor = Color.Transparent,
@@ -116,7 +130,7 @@ fun OrderManagementScreen(
                     }
                 }
 
-                // 2. CONTENT HANDLING
+                // Content
                 when (val state = shopBookingsState) {
                     is Resource.Loading -> FullLoadingScreenLiquid(amberOrange)
                     is Resource.Success -> {
@@ -138,7 +152,19 @@ fun OrderManagementScreen(
                                         onAccept = { viewModel.updateBookingStatus(booking.bookingId, BookingStatus.CONFIRMED, shopId) },
                                         onReject = { selectedBooking = booking; showRejectDialog = true },
                                         onComplete = { viewModel.updateBookingStatus(booking.bookingId, BookingStatus.COMPLETED, shopId) },
-                                        onViewDetails = { navController.navigate("shop_booking_details/${booking.bookingId}") }
+                                        onViewDetails = { navController.navigate("shop_booking_details/${booking.bookingId}") },
+                                        onChatClick = {  // 👈 CHAT BUTTON HANDLER
+                                            chatViewModel.startChatAsShopOwner(
+                                                shopId = booking.shopId,
+                                                shopName = booking.shopName,
+                                                shopImage = "",
+                                                customerId = booking.customerId,
+                                                customerName = booking.customerName,
+                                                customerImage = "",
+                                                bookingId = booking.bookingId
+                                            )
+                                            navController.navigate("shop_chat")
+                                        }
                                     )
                                 }
                             }
@@ -150,7 +176,7 @@ fun OrderManagementScreen(
             }
         }
 
-        // 3. REJECT DIALOG (Amber Glassy)
+        // Reject Dialog
         if (showRejectDialog && selectedBooking != null) {
             AlertDialog(
                 containerColor = Color(0xFF151515),
@@ -177,7 +203,7 @@ fun OrderManagementScreen(
             )
         }
 
-        // 4. LOADING OVERLAY
+        // Loading Overlay
         if (updateStatusState is Resource.Loading) {
             Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.6f)), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator(color = amberOrange)
@@ -195,7 +221,8 @@ fun BookingCardLiquid(
     onAccept: () -> Unit,
     onReject: () -> Unit,
     onComplete: () -> Unit,
-    onViewDetails: () -> Unit
+    onViewDetails: () -> Unit,
+    onChatClick: () -> Unit = {}  // 👈 CHAT CLICK HANDLER
 ) {
     Surface(
         modifier = Modifier.fillMaxWidth().border(1.dp, Brush.linearGradient(listOf(outline, Color.Transparent)), RoundedCornerShape(24.dp)),
@@ -204,9 +231,35 @@ fun BookingCardLiquid(
         onClick = onViewDetails
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                Text("#${booking.bookingId.takeLast(6).uppercase()}", color = Color.Gray, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                BookingStatusChipLiquid(booking.status, accent)
+            // Header Row
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    "#${booking.bookingId.takeLast(6).uppercase()}",
+                    color = Color.Gray,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold
+                )
+
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    BookingStatusChipLiquid(booking.status, accent)
+
+                    // 💬 Chat Icon Button
+                    IconButton(
+                        onClick = onChatClick,
+                        modifier = Modifier.size(32.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.Chat,
+                            contentDescription = "Chat with Customer",
+                            tint = accent,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                }
             }
 
             Spacer(Modifier.height(12.dp))
@@ -224,7 +277,7 @@ fun BookingCardLiquid(
 
             Spacer(Modifier.height(16.dp))
 
-            // ACTIONS
+            // Action Buttons
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 when (booking.status) {
                     BookingStatus.PENDING -> {

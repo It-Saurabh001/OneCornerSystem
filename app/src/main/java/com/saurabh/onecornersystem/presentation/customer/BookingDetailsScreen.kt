@@ -4,6 +4,7 @@ import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -48,37 +49,26 @@ fun BookingDetailsScreen(
     var cancelReason by remember { mutableStateOf("") }
     var isLoading by remember { mutableStateOf(false) }
 
-    // Fetch booking details
+    // Chat button colors
+    val chatColor = Color(0xFF4CAF50)  // Green for chat
+
     LaunchedEffect(bookingId) {
         Log.d(TAG, "📞 Fetching booking details for ID: $bookingId")
         viewModel.getBookingDetails(bookingId)
     }
 
-    // Handle cancellation state
     LaunchedEffect(cancelBookingState) {
         when (val state = cancelBookingState) {
             is Resource.Success -> {
                 isLoading = false
-                Log.d(TAG, "✅ Booking cancelled successfully")
-                snackbarHostState.showSnackbar(
-                    message = "Booking cancelled successfully",
-                    duration = SnackbarDuration.Short
-                )
+                snackbarHostState.showSnackbar("Booking cancelled successfully")
                 navController.popBackStack()
             }
             is Resource.Error -> {
                 isLoading = false
-                val errorMsg = state.message ?: "Failed to cancel booking"
-                Log.e(TAG, "❌ Cancel failed: $errorMsg")
-                snackbarHostState.showSnackbar(
-                    message = errorMsg,
-                    duration = SnackbarDuration.Long
-                )
+                snackbarHostState.showSnackbar(state.message ?: "Failed to cancel")
             }
-            is Resource.Loading -> {
-                isLoading = true
-                Log.d(TAG, "⏳ Cancelling booking...")
-            }
+            is Resource.Loading -> { isLoading = true }
             else -> {}
         }
     }
@@ -93,6 +83,31 @@ fun BookingDetailsScreen(
                     }
                 },
                 actions = {
+                    // Chat Icon in Top Bar
+                    when (val state = bookingDetailsState) {
+                        is Resource.Success -> {
+                            val booking = state.data
+                            if (booking.status == BookingStatus.PENDING ||
+                                booking.status == BookingStatus.CONFIRMED ||
+                                booking.status == BookingStatus.IN_PROGRESS) {
+                                IconButton(onClick = {
+                                    val encodedName = android.net.Uri.encode(booking.shopName)
+                                    navController.navigate(
+                                        "customer_chat?bookingId=${booking.bookingId}&shopId=${booking.shopId}&shopName=$encodedName&shopImage="
+                                    )
+                                }) {
+                                    Icon(
+                                        Icons.Default.Chat,
+                                        contentDescription = "Chat with Shop",
+                                        tint = chatColor
+                                    )
+                                }
+                            }
+                        }
+                        else -> {}
+                    }
+
+                    // Share Button
                     IconButton(onClick = { /* Share booking */ }) {
                         Icon(Icons.Default.Share, contentDescription = "Share")
                     }
@@ -106,29 +121,19 @@ fun BookingDetailsScreen(
             when (val state = bookingDetailsState) {
                 is Resource.Loading -> {
                     Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(paddingValues),
+                        modifier = Modifier.fillMaxSize().padding(paddingValues),
                         contentAlignment = Alignment.Center
                     ) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             CircularProgressIndicator()
                             Spacer(modifier = Modifier.height(8.dp))
-                            Text(
-                                text = "Loading booking details...",
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
+                            Text("Loading booking details...", color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
                 }
 
                 is Resource.Success -> {
                     val booking = state.data
-
-                    Log.d(TAG, "✅ Booking loaded: ${booking.bookingId}")
-                    Log.d(TAG, "   Location type: ${booking.serviceLocation}")
-                    Log.d(TAG, "   Shop address: ${booking.shopAddress}")
-                    Log.d(TAG, "   Service address: ${booking.serviceAddress}")
 
                     Column(
                         modifier = Modifier
@@ -139,11 +144,8 @@ fun BookingDetailsScreen(
                         // Status Banner
                         StatusBanner(status = booking.status)
 
-                        // Content
                         Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(16.dp)
+                            modifier = Modifier.fillMaxWidth().padding(16.dp)
                         ) {
                             // Booking ID
                             Text(
@@ -153,48 +155,24 @@ fun BookingDetailsScreen(
                                 modifier = Modifier.padding(bottom = 8.dp)
                             )
 
-                            // Shop and Service Info
+                            // Shop and Service Info Card
                             Card(
                                 modifier = Modifier.fillMaxWidth(),
                                 colors = CardDefaults.cardColors(
                                     containerColor = MaterialTheme.colorScheme.primaryContainer
                                 )
                             ) {
-                                Column(
-                                    modifier = Modifier.padding(16.dp)
-                                ) {
-                                    Text(
-                                        text = booking.shopName,
-                                        fontSize = 20.sp,
-                                        fontWeight = FontWeight.Bold
-                                    )
-
+                                Column(modifier = Modifier.padding(16.dp)) {
+                                    Text(booking.shopName, fontSize = 20.sp, fontWeight = FontWeight.Bold)
                                     Spacer(modifier = Modifier.height(4.dp))
-
-                                    Text(
-                                        text = booking.serviceName,
-                                        fontSize = 16.sp,
-                                        color = MaterialTheme.colorScheme.primary
-                                    )
-
+                                    Text(booking.serviceName, fontSize = 16.sp, color = MaterialTheme.colorScheme.primary)
                                     Spacer(modifier = Modifier.height(8.dp))
-
-                                    // Price
                                     Row(
                                         modifier = Modifier.fillMaxWidth(),
                                         horizontalArrangement = Arrangement.SpaceBetween
                                     ) {
-                                        Text(
-                                            text = "Price",
-                                            fontSize = 14.sp,
-                                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                                        )
-                                        Text(
-                                            text = "₹${booking.servicePrice}",
-                                            fontSize = 18.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            color = MaterialTheme.colorScheme.primary
-                                        )
+                                        Text("Price", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
+                                        Text("₹${booking.servicePrice}", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
                                     }
                                 }
                             }
@@ -210,51 +188,26 @@ fun BookingDetailsScreen(
 
                             Spacer(modifier = Modifier.height(12.dp))
 
-                            // ============= FIXED LOCATION DISPLAY WITH FULL ADDRESS =============
+                            // Location
                             if (booking.serviceLocation == ServiceLocation.CUSTOMER_HOME) {
-                                // Home Service Address - Full address with city and pincode
                                 InfoCard(
                                     icon = Icons.Default.Home,
                                     title = "Home Service Address",
                                     content = buildString {
                                         append(booking.serviceAddress)
-                                        if (booking.customerCity.isNotBlank()) {
-                                            append("\n${booking.customerCity}")
-                                            if (booking.customerPincode.isNotBlank()) {
-                                                append(" - ${booking.customerPincode}")
-                                            }
-                                        }
+                                        if (booking.customerCity.isNotBlank()) append("\n${booking.customerCity}")
+                                        if (booking.customerPincode.isNotBlank()) append(" - ${booking.customerPincode}")
                                     }
                                 )
                             } else {
-                                // Shop Location - Full address with all details
                                 InfoCard(
                                     icon = Icons.Default.Store,
                                     title = "Shop Location",
                                     content = buildString {
-                                        // Shop address
-                                        if (booking.shopAddress.isNotBlank()) {
-                                            append(booking.shopAddress)
-                                        } else {
-                                            append(booking.shopName)
-                                        }
-
-                                        // Shop city if available
-                                        if (booking.customerCity.isNotBlank()) {
-                                            append("\n${booking.customerCity}")
-                                        }
-
-                                        // Shop pincode if available
-                                        if (booking.customerPincode.isNotBlank()) {
-                                            append(" - ${booking.customerPincode}")
-                                        }
-
-                                        // Shop contact as fallback
-                                        if (booking.shopAddress.isBlank() &&
-                                            booking.customerCity.isBlank() &&
-                                            booking.customerPincode.isBlank()) {
-                                            append("\n📍 Contact shop for exact location")
-                                        }
+                                        if (booking.shopAddress.isNotBlank()) append(booking.shopAddress)
+                                        else append(booking.shopName)
+                                        if (booking.customerCity.isNotBlank()) append("\n${booking.customerCity}")
+                                        if (booking.customerPincode.isNotBlank()) append(" - ${booking.customerPincode}")
                                     }
                                 )
                             }
@@ -271,7 +224,7 @@ fun BookingDetailsScreen(
                                 Spacer(modifier = Modifier.height(12.dp))
                             }
 
-                            // Customer Contact (for shop to contact)
+                            // Customer Contact
                             if (booking.customerPhone.isNotBlank()) {
                                 InfoCard(
                                     icon = Icons.Default.Phone,
@@ -281,7 +234,7 @@ fun BookingDetailsScreen(
                                 Spacer(modifier = Modifier.height(12.dp))
                             }
 
-                            // Notes (if any)
+                            // Notes
                             if (booking.notes.isNotBlank()) {
                                 InfoCard(
                                     icon = Icons.Default.Notes,
@@ -291,44 +244,55 @@ fun BookingDetailsScreen(
                                 Spacer(modifier = Modifier.height(12.dp))
                             }
 
-                            // Cancellation Info (if cancelled or rejected)
+                            // Cancellation Info
                             if ((booking.status == BookingStatus.CANCELLED || booking.status == BookingStatus.REJECTED)
                                 && booking.cancellationReason.isNotBlank()) {
                                 Card(
                                     modifier = Modifier.fillMaxWidth(),
-                                    colors = CardDefaults.cardColors(
-                                        containerColor = Color(0xFFE53935).copy(alpha = 0.1f)
-                                    )
+                                    colors = CardDefaults.cardColors(containerColor = Color(0xFFE53935).copy(alpha = 0.1f))
                                 ) {
-                                    Row(
-                                        modifier = Modifier.padding(16.dp),
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Icon(
-                                            Icons.Default.Warning,
-                                            contentDescription = null,
-                                            tint = Color(0xFFE53935)
-                                        )
+                                    Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(Icons.Default.Warning, null, tint = Color(0xFFE53935))
                                         Spacer(modifier = Modifier.width(8.dp))
                                         Column {
                                             Text(
-                                                text = if (booking.status == BookingStatus.CANCELLED)
-                                                    "Cancellation Reason" else "Rejection Reason",
-                                                fontSize = 12.sp,
-                                                color = Color(0xFFE53935).copy(alpha = 0.7f)
+                                                if (booking.status == BookingStatus.CANCELLED) "Cancellation Reason" else "Rejection Reason",
+                                                fontSize = 12.sp, color = Color(0xFFE53935).copy(alpha = 0.7f)
                                             )
-                                            Text(
-                                                text = booking.cancellationReason,
-                                                fontSize = 14.sp,
-                                                color = Color(0xFFE53935)
-                                            )
+                                            Text(booking.cancellationReason, fontSize = 14.sp, color = Color(0xFFE53935))
                                         }
                                     }
                                 }
                                 Spacer(modifier = Modifier.height(12.dp))
                             }
 
-                            Spacer(modifier = Modifier.height(24.dp))
+                            // ========== CHAT BUTTON (For active bookings) ==========
+                            if (booking.status == BookingStatus.PENDING ||
+                                booking.status == BookingStatus.CONFIRMED ||
+                                booking.status == BookingStatus.IN_PROGRESS) {
+
+                                Button(
+                                    onClick = {
+                                        val encodedName = android.net.Uri.encode(booking.shopName)
+                                        navController.navigate(
+                                            "customer_chat?bookingId=${booking.bookingId}&shopId=${booking.shopId}&shopName=$encodedName&shopImage="
+                                        )
+                                    },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(52.dp),
+                                    colors = ButtonDefaults.buttonColors(containerColor = chatColor),
+                                    shape = RoundedCornerShape(12.dp)
+                                ) {
+                                    Icon(Icons.Default.Chat, contentDescription = null, modifier = Modifier.size(20.dp))
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text("MESSAGE SHOP", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                                }
+
+                                Spacer(modifier = Modifier.height(12.dp))
+                            }
+
+                            Spacer(modifier = Modifier.height(8.dp))
 
                             // Action Buttons
                             when (booking.status) {
@@ -337,15 +301,10 @@ fun BookingDetailsScreen(
                                         onClick = { showCancelDialog = true },
                                         modifier = Modifier.fillMaxWidth(),
                                         enabled = !isLoading,
-                                        colors = ButtonDefaults.buttonColors(
-                                            containerColor = Color(0xFFE53935)
-                                        )
+                                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE53935))
                                     ) {
                                         if (isLoading) {
-                                            CircularProgressIndicator(
-                                                modifier = Modifier.size(20.dp),
-                                                color = Color.White
-                                            )
+                                            CircularProgressIndicator(modifier = Modifier.size(20.dp), color = Color.White)
                                         } else {
                                             Text("Cancel Booking")
                                         }
@@ -357,22 +316,18 @@ fun BookingDetailsScreen(
                                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                                     ) {
                                         OutlinedButton(
-                                            onClick = {
-                                                // Open phone dialer
-                                            },
+                                            onClick = { /* Open phone */ },
                                             modifier = Modifier.weight(1f)
                                         ) {
-                                            Icon(Icons.Default.Phone, contentDescription = null)
+                                            Icon(Icons.Default.Phone, null)
                                             Spacer(modifier = Modifier.width(4.dp))
-                                            Text("Contact Shop")
+                                            Text("Call Shop")
                                         }
                                         Button(
-                                            onClick = {
-                                                // Open Google Maps with coordinates or address
-                                            },
+                                            onClick = { /* Open maps */ },
                                             modifier = Modifier.weight(1f)
                                         ) {
-                                            Icon(Icons.Default.Map, contentDescription = null)
+                                            Icon(Icons.Default.Map, null)
                                             Spacer(modifier = Modifier.width(4.dp))
                                             Text("Directions")
                                         }
@@ -380,12 +335,10 @@ fun BookingDetailsScreen(
                                 }
                                 BookingStatus.COMPLETED -> {
                                     Button(
-                                        onClick = {
-                                            // Rate service
-                                        },
+                                        onClick = { /* Rate service */ },
                                         modifier = Modifier.fillMaxWidth()
                                     ) {
-                                        Icon(Icons.Default.Star, contentDescription = null)
+                                        Icon(Icons.Default.Star, null)
                                         Spacer(modifier = Modifier.width(4.dp))
                                         Text("Rate This Service")
                                     }
@@ -406,89 +359,32 @@ fun BookingDetailsScreen(
                 }
 
                 is Resource.Error -> {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(paddingValues),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            modifier = Modifier.padding(24.dp)
-                        ) {
-                            Icon(
-                                Icons.Default.ErrorOutline,
-                                contentDescription = null,
-                                modifier = Modifier.size(64.dp),
-                                tint = MaterialTheme.colorScheme.error
-                            )
-
+                    Box(modifier = Modifier.fillMaxSize().padding(paddingValues), contentAlignment = Alignment.Center) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(24.dp)) {
+                            Icon(Icons.Default.ErrorOutline, null, modifier = Modifier.size(64.dp), tint = MaterialTheme.colorScheme.error)
                             Spacer(modifier = Modifier.height(16.dp))
-
-                            Text(
-                                text = "Failed to load booking",
-                                fontSize = 18.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.error
-                            )
-
+                            Text("Failed to load booking", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.error)
                             Spacer(modifier = Modifier.height(8.dp))
-
-                            Text(
-                                text = state.message ?: "Something went wrong",
-                                fontSize = 14.sp,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                textAlign = TextAlign.Center
-                            )
-
+                            Text(state.message ?: "Something went wrong", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
                             Spacer(modifier = Modifier.height(16.dp))
-
-                            Row(
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                OutlinedButton(
-                                    onClick = { navController.popBackStack() }
-                                ) {
-                                    Text("Go Back")
-                                }
-
-                                Button(
-                                    onClick = {
-                                        viewModel.getBookingDetails(bookingId)
-                                    }
-                                ) {
-                                    Text("Retry")
-                                }
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                OutlinedButton(onClick = { navController.popBackStack() }) { Text("Go Back") }
+                                Button(onClick = { viewModel.getBookingDetails(bookingId) }) { Text("Retry") }
                             }
                         }
                     }
                 }
-
                 else -> {}
             }
 
             // Loading Overlay
             if (isLoading) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(Color.Black.copy(alpha = 0.3f)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Card(
-                        modifier = Modifier.padding(16.dp),
-                        shape = MaterialTheme.shapes.medium
-                    ) {
-                        Column(
-                            modifier = Modifier.padding(24.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
+                Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.3f)), contentAlignment = Alignment.Center) {
+                    Card(modifier = Modifier.padding(16.dp), shape = MaterialTheme.shapes.medium) {
+                        Column(modifier = Modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                             CircularProgressIndicator()
                             Spacer(modifier = Modifier.height(12.dp))
-                            Text(
-                                text = "Processing...",
-                                fontWeight = FontWeight.Medium
-                            )
+                            Text("Processing...", fontWeight = FontWeight.Medium)
                         }
                     }
                 }
@@ -496,20 +392,14 @@ fun BookingDetailsScreen(
         }
     }
 
-    // Cancel Confirmation Dialog
+    // Cancel Dialog
     if (showCancelDialog) {
         AlertDialog(
-            onDismissRequest = {
-                showCancelDialog = false
-                cancelReason = ""
-            },
+            onDismissRequest = { showCancelDialog = false; cancelReason = "" },
             title = { Text("Cancel Booking") },
             text = {
                 Column {
-                    Text(
-                        text = "Are you sure you want to cancel this booking?",
-                        fontSize = 14.sp
-                    )
+                    Text("Are you sure you want to cancel this booking?", fontSize = 14.sp)
                     Spacer(modifier = Modifier.height(8.dp))
                     OutlinedTextField(
                         value = cancelReason,
@@ -528,20 +418,11 @@ fun BookingDetailsScreen(
                         }
                         showCancelDialog = false
                     },
-                    colors = ButtonDefaults.textButtonColors(
-                        contentColor = Color(0xFFE53935)
-                    )
-                ) {
-                    Text("Confirm Cancel")
-                }
+                    colors = ButtonDefaults.textButtonColors(contentColor = Color(0xFFE53935))
+                ) { Text("Confirm Cancel") }
             },
             dismissButton = {
-                TextButton(onClick = {
-                    showCancelDialog = false
-                    cancelReason = ""
-                }) {
-                    Text("Back")
-                }
+                TextButton(onClick = { showCancelDialog = false; cancelReason = "" }) { Text("Back") }
             }
         )
     }

@@ -21,18 +21,14 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.automirrored.filled.ReceiptLong
-import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.AddCircle
-import androidx.compose.material.icons.filled.BarChart
-import androidx.compose.material.icons.filled.Build
-import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Chat
 import androidx.compose.material.icons.filled.GridView
-import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Inventory
 import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.icons.filled.Payments
@@ -40,11 +36,10 @@ import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.ReceiptLong
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Star
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -55,6 +50,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -67,31 +63,24 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
-import com.saurabh.onecornersystem.data.model.Booking
-import com.saurabh.onecornersystem.data.model.BookingStatus
 import com.saurabh.onecornersystem.data.model.Shop
-import com.saurabh.onecornersystem.data.model.ShopItem
 import com.saurabh.onecornersystem.data.model.ShopType
-import com.saurabh.onecornersystem.presentation.common.ProfileScreen
 import com.saurabh.onecornersystem.presentation.navigation.Screen
 import com.saurabh.onecornersystem.presentation.shopowner.viewmodel.ShopItemViewModel
 import com.saurabh.onecornersystem.presentation.shopowner.viewmodel.ShopViewModel
 import com.saurabh.onecornersystem.utils.Resource
-import java.text.SimpleDateFormat
-import java.util.Locale
 
 @Composable
-fun ShopOwnerHomeScreen1(
+fun ShopOwnerHomeScreen(
     navController: NavController,
     ownerId: String,
     viewModel: ShopViewModel = hiltViewModel(),
     shopItemViewModel: ShopItemViewModel = hiltViewModel()
 ) {
-    // --- LIVE STATES ---
     val myShopState by viewModel.myShopState.collectAsState()
+    val pendingBookingsCount by viewModel.pendingBookingsCount.collectAsState()
 
-
-    var selectedTab by remember { mutableIntStateOf(0) }
+    var selectedTab by rememberSaveable { mutableIntStateOf(0) }
     val amberOrange = Color(0xFFFF9100)
     val deepBlack = Color(0xFF0A0A0A)
 
@@ -114,22 +103,27 @@ fun ShopOwnerHomeScreen1(
         Scaffold(
             containerColor = Color.Transparent,
             bottomBar = {
-                OwnerBottomBar(selectedTab, { selectedTab = it }, amberOrange)
+                OwnerBottomBar(
+                    selectedTab = selectedTab,
+                    onTabSelected = { selectedTab = it },
+                    accent = amberOrange,
+                    pendingCount = pendingBookingsCount
+                )
             }
         ) { paddingValues ->
             Box(modifier = Modifier.fillMaxSize()) {
                 when (val state = myShopState) {
-                    is Resource.Loading -> Box(modifier = Modifier.padding(paddingValues)){
+                    is Resource.Loading -> Box(modifier = Modifier.padding(paddingValues)) {
                         FullLoadingScreenLiquid()
                     }
 
                     is Resource.Success -> {
                         val shop = state.data
-                        // --- SWITCHING CONTENT BASED ON BOTTOM BAR ---
                         when (selectedTab) {
                             0 -> HomeDashboardTab(shop, amberOrange, navController)
                             1 -> OrderManagementScreen(shop.shopId, navController, viewModel)
                             2 -> ServiceListScreen(shop.shopId, navController)
+                            3 -> ShopChatListScreen(navController = navController) // 👈 NEW Messages Tab
                         }
                     }
                     is Resource.Error -> ErrorCardGlass(state.message, amberOrange) { viewModel.getMyShop(ownerId) }
@@ -144,62 +138,61 @@ fun ShopOwnerHomeScreen1(
 @Composable
 fun HomeDashboardTab(shop: Shop, accent: Color, navController: NavController) {
     val outline = Color.White.copy(alpha = 0.1f)
-    Scaffold(containerColor = Color.Transparent,
-        modifier = Modifier) {innerpadding->
-        Box(modifier = Modifier.padding(innerpadding)
-            .background(Color.Transparent)) {
 
-            LazyColumn(contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(24.dp)) {
-                item {
-                    Column {
-                        Text("Enterprise Hub", color = Color.Gray, fontSize = 12.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
-                        Text(shop.shopName, color = Color.White, fontSize = 28.sp, fontWeight = FontWeight.Black)
-                    }
-                }
-
-                // 1. REVENUE GRAPH (Custom Bar Chart)
-                item {
-                    BusinessPerformanceGraph(accent, outline)
-                }
-
-                // 2. LIVE STATS GRID
-                item {
-                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                            RealtimeStatCard("Total Revenue", "₹${shop.totalRevenue.toInt()}", Icons.Default.Payments, Modifier.weight(1.2f), accent, outline)
-                            RealtimeStatCard("Orders", shop.totalOrders.toString(), Icons.Default.ReceiptLong, Modifier.weight(0.8f), accent, outline)
-                        }
-                        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                            RealtimeStatCard("Avg Rating", String.format("%.1f", shop.rating), Icons.Default.Star, Modifier.weight(1f), accent, outline)
-                            RealtimeStatCard("Inventory", shop.totalItems.toString(), Icons.Default.Inventory2, Modifier.weight(1f), accent, outline)
-                        }
-                    }
-                }
-
-                // 3. QUICK ACTIONS
-                item {
-                    Text("Quick Management", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                    Spacer(Modifier.height(12.dp))
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                        OwnerActionTile("Edit Shop", Icons.Default.Settings, accent, Color.White.copy(0.05f), outline) { navController.navigate("edit_shop/${shop.shopId}") }
-                        OwnerActionTile("New Service", Icons.Default.AddCircle, accent, Color.White.copy(0.05f), outline) {
-                            val route = if(shop.shopType == ShopType.PRODUCT) "add_product/${shop.shopId}" else "add_service/${shop.shopId}"
-                            navController.navigate(route)
-                        }
-                        OwnerActionTile("Profile", Icons.Default.Person, accent, Color.White.copy(0.05f), outline) {
-                            /* More Stats */
-                            navController.navigate(Screen.Profile.route)
-                        }
-                    }
-                }
-
-                item { Spacer(Modifier.height(80.dp)) }
+    LazyColumn(
+        contentPadding = PaddingValues(20.dp),
+        verticalArrangement = Arrangement.spacedBy(24.dp)
+    ) {
+        // Header
+        item {
+            Column {
+                Text("Enterprise Hub", color = Color.Gray, fontSize = 12.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+                Text(shop.shopName, color = Color.White, fontSize = 28.sp, fontWeight = FontWeight.Black)
             }
         }
 
+        // Revenue Graph
+        item {
+            BusinessPerformanceGraph(accent, outline)
+        }
+
+        // Stats Grid
+        item {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    RealtimeStatCard("Total Revenue", "₹${shop.totalRevenue.toInt()}", Icons.Default.Payments, Modifier.weight(1.2f), accent, outline)
+                    RealtimeStatCard("Orders", shop.totalOrders.toString(), Icons.Default.ReceiptLong, Modifier.weight(0.8f), accent, outline)
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    RealtimeStatCard("Avg Rating", String.format("%.1f", shop.rating), Icons.Default.Star, Modifier.weight(1f), accent, outline)
+                    RealtimeStatCard("Inventory", shop.totalItems.toString(), Icons.Default.Inventory2, Modifier.weight(1f).clickable(onClick = { navController.navigate(route = Screen.ServiceList.route) }), accent, outline)
+                }
+            }
+        }
+
+        // Quick Actions
+        item {
+            Text("Quick Management", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+            Spacer(Modifier.height(12.dp))
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                OwnerActionTile("Edit Shop", Icons.Default.Settings, accent, Color.White.copy(0.05f), outline) {
+                    navController.navigate("edit_shop/${shop.shopId}")
+                }
+                OwnerActionTile("New Service", Icons.Default.AddCircle, accent, Color.White.copy(0.05f), outline) {
+                    val route = if(shop.shopType == ShopType.PRODUCT) "add_product/${shop.shopId}" else "add_service/${shop.shopId}"
+                    navController.navigate(route)
+                }
+                OwnerActionTile("Messages", Icons.Default.Chat, accent, Color.White.copy(0.05f), outline) {
+                    navController.navigate(Screen.ShopChatList.route) // 👈 Messages shortcut
+                }
+                OwnerActionTile("Profile", Icons.Default.Person, accent, Color.White.copy(0.05f), outline) {
+                    navController.navigate(Screen.Profile.route)
+                }
+            }
+        }
+
+        item { Spacer(Modifier.height(80.dp)) }
     }
-
-
 }
 
 // ================= CUSTOM GRAPH COMPONENT =================
@@ -247,21 +240,34 @@ fun BusinessPerformanceGraph(accent: Color, outline: Color) {
 
 // ================= BOTTOM BAR NAVIGATION =================
 @Composable
-fun OwnerBottomBar(selectedTab: Int, onTabSelected: (Int) -> Unit, accent: Color) {
+fun OwnerBottomBar(
+    selectedTab: Int,
+    onTabSelected: (Int) -> Unit,
+    accent: Color,
+    pendingCount: Int = 0
+) {
     val items = listOf(
-        Triple("Home", Icons.Default.GridView, 0),
-        Triple("Orders", Icons.AutoMirrored.Filled.ReceiptLong, 1),
-        Triple("Inventory", Icons.Default.Inventory, 2),
+        Quadruple("Home", Icons.Default.GridView, 0, 0),
+        Quadruple("Orders", Icons.AutoMirrored.Filled.ReceiptLong, 1, pendingCount),
+        Quadruple("Items", Icons.Default.Inventory, 2, 0),
+        Quadruple("Messages", Icons.Default.Chat, 3, 0) // 👈 NEW Messages Tab
     )
 
     Surface(
-        modifier = Modifier.padding(horizontal = 20.dp, vertical = 24.dp).height(72.dp).border(1.dp, Color.White.copy(0.1f), RoundedCornerShape(36.dp)),
+        modifier = Modifier
+            .padding(horizontal = 20.dp, vertical = 24.dp)
+            .height(72.dp)
+            .border(1.dp, Color.White.copy(0.1f), RoundedCornerShape(36.dp)),
         color = Color(0xFF151515).copy(alpha = 0.95f),
         shape = RoundedCornerShape(36.dp),
         shadowElevation = 12.dp
     ) {
-        Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
-            items.forEach { (label, icon, index) ->
+        Row(
+            Modifier.fillMaxSize(),
+            horizontalArrangement = Arrangement.SpaceEvenly,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            items.forEach { (label, icon, index, badgeCount) ->
                 val isSelected = selectedTab == index
                 val color by animateColorAsState(if (isSelected) accent else Color.Gray)
 
@@ -269,14 +275,54 @@ fun OwnerBottomBar(selectedTab: Int, onTabSelected: (Int) -> Unit, accent: Color
                     modifier = Modifier.clickable { onTabSelected(index) },
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Icon(icon, null, tint = color, modifier = Modifier.size(if (isSelected) 20.dp else 17.dp))
-                    Text(text = label, color= color, fontSize = 8.sp, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal, modifier = Modifier.padding(top = 2.dp))
-                    if (isSelected) Box(Modifier.size(4.dp).background(accent, CircleShape).offset(y = 4.dp))
+                    // Icon with optional badge
+                    if (badgeCount > 0) {
+                        BadgedBox(
+                            badge = {
+                                Badge(containerColor = Color.Red) {
+                                    Text(
+                                        "$badgeCount",
+                                        fontSize = 10.sp,
+                                        color = Color.White
+                                    )
+                                }
+                            }
+                        ) {
+                            Icon(icon, null, tint = color, modifier = Modifier.size(if (isSelected) 20.dp else 17.dp))
+                        }
+                    } else {
+                        Icon(icon, null, tint = color, modifier = Modifier.size(if (isSelected) 20.dp else 17.dp))
+                    }
+
+                    Text(
+                        text = label,
+                        color = color,
+                        fontSize = 8.sp,
+                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                        modifier = Modifier.padding(top = 2.dp)
+                    )
+
+                    if (isSelected) {
+                        Box(
+                            Modifier
+                                .size(4.dp)
+                                .background(accent, CircleShape)
+                                .offset(y = 4.dp)
+                        )
+                    }
                 }
             }
         }
     }
 }
+
+// Data class for bottom bar items
+data class Quadruple<A, B, C, D>(
+    val first: A,
+    val second: B,
+    val third: C,
+    val fourth: D
+)
 
 @Composable
 fun RealtimeStatCard(label: String, value: String, icon: ImageVector, modifier: Modifier, accent: Color, outline: Color) {

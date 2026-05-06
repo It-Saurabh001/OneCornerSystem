@@ -13,6 +13,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.saurabh.onecornersystem.presentation.auth.viewmodel.AuthViewModel
+import com.saurabh.onecornersystem.presentation.common.ChatViewModel
 import com.saurabh.onecornersystem.presentation.customer.viewmodel.CustomerShopViewModel
 import com.saurabh.onecornersystem.presentation.navigation.AppNavGraph
 import com.saurabh.onecornersystem.presentation.shopowner.viewmodel.ShopViewModel
@@ -36,13 +37,15 @@ class MainActivity : ComponentActivity() {
                     val authViewModel: AuthViewModel = hiltViewModel()
                     val customerShopViewModel: CustomerShopViewModel = hiltViewModel()
                     val shopViewModel: ShopViewModel = hiltViewModel()
+                    val chatViewModel : ChatViewModel = hiltViewModel()
 
                     // Pass all ViewModels to AppNavGraph
                     // This will show the custom Compose splash screen
                     AppNavGraph(
                         authViewModel = authViewModel,
                         customerShopViewModel = customerShopViewModel,
-                        shopViewModel = shopViewModel
+                        shopViewModel = shopViewModel,
+                        chatViewModel = chatViewModel
                     )
                 }
             }

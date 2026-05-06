@@ -27,6 +27,7 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.saurabh.onecornersystem.data.model.ShopItem
+import com.saurabh.onecornersystem.presentation.common.ChatViewModel
 import com.saurabh.onecornersystem.presentation.components.Base64Image
 import com.saurabh.onecornersystem.presentation.customer.viewmodel.CustomerShopViewModel
 import com.saurabh.onecornersystem.utils.Resource
@@ -37,7 +38,8 @@ import androidx.compose.ui.tooling.preview.Preview
 fun ServiceDetailScreenCustomer(
     serviceId: String,
     navController: NavController,
-    viewModel: CustomerShopViewModel = hiltViewModel()
+    viewModel: CustomerShopViewModel = hiltViewModel(),
+    chatViewModel: ChatViewModel = hiltViewModel()
 ) {
     val serviceState by viewModel.serviceItemDetailsState.collectAsState()
 
@@ -72,8 +74,21 @@ fun ServiceDetailScreenCustomer(
                         }
                     },
                     actions = {
-                        IconButton(onClick = {}) {
-                            Icon(Icons.Default.Share, "Share", tint = electricBlue)
+                        // 👈 CHAT ICON IN TOP BAR
+                        IconButton(onClick = {
+                            val service = (serviceState as? Resource.Success)?.data
+                            if (service != null) {
+                                val encodedName = android.net.Uri.encode(service.name)
+                                navController.navigate(
+                                    "customer_chat?bookingId=&shopId=${service.shopId}&shopName=$encodedName&shopImage="
+                                )
+                            }
+                        }) {
+                            Icon(
+                                Icons.Default.Chat,
+                                contentDescription = "Chat with Shop",
+                                tint = electricBlue
+                            )
                         }
                     }
                 )
@@ -83,21 +98,63 @@ fun ServiceDetailScreenCustomer(
                     val service = (serviceState as Resource.Success).data
                     Surface(
                         modifier = Modifier.fillMaxWidth().background(Color.Transparent),
-                        color = Color.Black.copy(alpha = 0.7f) // Glassy bottom bar
+                        color = Color.Black.copy(alpha = 0.85f)
                     ) {
-                        Button(
-                            onClick = { navController.navigate("booking_form/${service.itemId}") },
-                            modifier = Modifier.fillMaxWidth().padding(16.dp).height(60.dp),
-                            shape = RoundedCornerShape(16.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = electricBlue),
-                            enabled = service.available
+                        // 👈 BOTTOM BAR WITH CHAT + BOOK BUTTON
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(12.dp),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text(
-                                text = if (service.available) "Confirm Booking • ₹${service.price}" else "Currently Unavailable",
-                                fontSize = 16.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color.White
-                            )
+                            // CHAT BUTTON
+                            OutlinedButton(
+                                onClick = {
+                                    val encodedName = android.net.Uri.encode(service.name)
+                                    navController.navigate(
+                                        "customer_chat?bookingId=&shopId=${service.shopId}&shopName=$encodedName&shopImage="
+                                    )
+                                },
+                                modifier = Modifier
+                                    .weight(0.4f)
+                                    .height(56.dp),
+                                shape = RoundedCornerShape(16.dp),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, electricBlue.copy(alpha = 0.5f)),
+                                colors = ButtonDefaults.outlinedButtonColors(
+                                    contentColor = electricBlue
+                                )
+                            ) {
+                                Icon(
+                                    Icons.Default.Chat,
+                                    contentDescription = null,
+                                    tint = electricBlue,
+                                    modifier = Modifier.size(22.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    "CHAT",
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = electricBlue
+                                )
+                            }
+
+                            // BOOK BUTTON
+                            Button(
+                                onClick = { navController.navigate("booking_form/${service.itemId}") },
+                                modifier = Modifier
+                                    .weight(0.6f)
+                                    .height(56.dp),
+                                shape = RoundedCornerShape(16.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = electricBlue),
+                                enabled = service.available
+                            ) {
+                                Text(
+                                    text = if (service.available) "BOOK NOW • ₹${service.price}" else "Unavailable",
+                                    fontSize = 15.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.White
+                                )
+                            }
                         }
                     }
                 }
@@ -114,7 +171,7 @@ fun ServiceDetailScreenCustomer(
                     Column(
                         modifier = Modifier.fillMaxSize().padding(paddingValues).verticalScroll(rememberScrollState())
                     ) {
-                        // 1. Service Banner (Liquid Style)
+                        // 1. Service Banner
                         Box(modifier = Modifier.padding(16.dp).fillMaxWidth().height(260.dp)) {
                             if (service.images.isNotEmpty()) {
                                 Base64Image(
@@ -137,12 +194,45 @@ fun ServiceDetailScreenCustomer(
                         }
 
                         Column(modifier = Modifier.padding(horizontal = 20.dp)) {
-                            Text(service.name, fontSize = 28.sp, fontWeight = FontWeight.Black, color = Color.White)
-                            Text(service.category, color = electricBlue, fontWeight = FontWeight.SemiBold)
+                            // 👈 SHOP NAME ROW WITH CHAT BUTTON
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(service.name, fontSize = 28.sp, fontWeight = FontWeight.Black, color = Color.White)
+                                    Text(service.category, color = electricBlue, fontWeight = FontWeight.SemiBold)
+                                }
+
+                                // 👈 QUICK CHAT ICON
+                                IconButton(
+                                    onClick = {
+                                        val encodedName = android.net.Uri.encode(service.name)
+                                        navController.navigate(
+                                            "customer_chat?bookingId=&shopId=${service.shopId}&shopName=$encodedName&shopImage="
+                                        )
+                                    },
+                                    modifier = Modifier
+                                        .size(44.dp)
+                                        .background(
+                                            electricBlue.copy(alpha = 0.1f),
+                                            CircleShape
+                                        )
+                                        .border(1.dp, electricBlue.copy(alpha = 0.3f), CircleShape)
+                                ) {
+                                    Icon(
+                                        Icons.Default.Chat,
+                                        contentDescription = "Chat",
+                                        tint = electricBlue,
+                                        modifier = Modifier.size(22.dp)
+                                    )
+                                }
+                            }
 
                             Spacer(modifier = Modifier.height(24.dp))
 
-                            // 2. Stats Grid (Glassmorphism)
+                            // 2. Stats Grid
                             Surface(
                                 modifier = Modifier.fillMaxWidth().border(1.dp, outlineWhite, RoundedCornerShape(20.dp)),
                                 color = glassWhite,
@@ -169,14 +259,58 @@ fun ServiceDetailScreenCustomer(
 
                             Spacer(modifier = Modifier.height(32.dp))
 
-                            // 4. Features (Glass style)
+                            // 4. Features
                             Text("Service Highlights", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.White)
                             Spacer(modifier = Modifier.height(16.dp))
                             LiquidFeatureTick(service.homeService, "Home Service Available", electricBlue)
                             LiquidFeatureTick(service.requiresAppointment, "Prior Appointment Needed", electricBlue)
                             LiquidFeatureTick(true, "Certified Professional", electricBlue)
 
-                            Spacer(modifier = Modifier.height(120.dp))
+                            // 👈 INLINE CHAT PROMPT
+                            Spacer(modifier = Modifier.height(32.dp))
+                            Surface(
+                                modifier = Modifier.fillMaxWidth(),
+                                color = electricBlue.copy(alpha = 0.05f),
+                                shape = RoundedCornerShape(16.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .border(1.dp, electricBlue.copy(alpha = 0.15f), RoundedCornerShape(16.dp))
+                                        .padding(16.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        Icons.Default.Chat,
+                                        null,
+                                        tint = electricBlue,
+                                        modifier = Modifier.size(24.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(12.dp))
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            "Have questions?",
+                                            color = Color.White,
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 14.sp
+                                        )
+                                        Text(
+                                            "Chat with the shop about this service",
+                                            color = Color.Gray,
+                                            fontSize = 12.sp
+                                        )
+                                    }
+                                    TextButton(onClick = {
+                                        val encodedName = android.net.Uri.encode(service.name)
+                                        navController.navigate(
+                                            "customer_chat?bookingId=&shopId=${service.shopId}&shopName=$encodedName&shopImage="
+                                        )
+                                    }) {
+                                        Text("CHAT", color = electricBlue, fontWeight = FontWeight.Bold)
+                                    }
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(100.dp)) // Bottom bar ke liye space
                         }
                     }
                 }
@@ -217,27 +351,15 @@ fun LiquidFeatureTick(active: Boolean, text: String, blue: Color) {
 }
 
 // --- PREVIEW ---
-
 @Preview(showBackground = true, showSystemUi = true)
 @Composable
 fun LiquidServiceDetailPreview() {
-    val mockService = ShopItem(
-        name = "Premium Car Detailing",
-        category = "Automotive",
-        price = 1299.0,
-        duration = "2 hrs",
-        description = "Full exterior and interior deep cleaning with wax polish and ceramic coating finish.",
-        homeService = true,
-        available = true
-    )
     MaterialTheme {
         Box(modifier = Modifier.fillMaxSize().background(Color(0xFF0A0A0A))) {
-            // Simulated Success State
             Column(modifier = Modifier.fillMaxSize().padding(24.dp)) {
                 Text("Preview: Service Details", color = Color.Gray, fontSize = 12.sp)
                 Spacer(modifier = Modifier.height(16.dp))
-                // Reuse existing components for preview
-                Text(mockService.name, color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.Black)
+                Text("Premium Car Detailing", color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.Black)
             }
         }
     }

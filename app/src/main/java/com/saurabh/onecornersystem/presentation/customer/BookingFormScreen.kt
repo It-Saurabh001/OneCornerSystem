@@ -92,8 +92,16 @@ fun BookingFormScreen(
     }
 
     LaunchedEffect(createBookingState) {
-        if (createBookingState is Resource.Success) {
-            navController.navigate("my_bookings") { popUpTo("booking_form/$serviceId") { inclusive = true } }
+        when (val state = createBookingState) {
+            is Resource.Success -> {
+                Log.d(TAG, "✅ Booking created successfully — navigating to my_bookings")
+                navController.navigate("my_bookings") { popUpTo("booking_form/$serviceId") { inclusive = true } }
+            }
+            is Resource.Error -> {
+                Log.e(TAG, "❌ Booking creation failed: ${state.message}")
+                // Error banner shown in UI below
+            }
+            else -> {}
         }
     }
 
@@ -239,24 +247,71 @@ fun BookingFormScreen(
                         val isBookingInProgress = createBookingState is Resource.Loading
                         val shop = (shopDetailsState as? Resource.Success)?.data
 
+                        // Error banner
+                        if (createBookingState is Resource.Error) {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Surface(
+                                modifier = Modifier.fillMaxWidth(),
+                                color = Color(0xFFB71C1C).copy(alpha = 0.15f),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Text(
+                                    text = "❌ ${(createBookingState as Resource.Error).message ?: "Booking failed. Please try again."}",
+                                    color = Color(0xFFEF9A9A),
+                                    fontSize = 13.sp,
+                                    modifier = Modifier.padding(12.dp)
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(8.dp))
+                        }
+
+                        // Shop not ready warning
+                        if (shop == null && !isBookingInProgress) {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Surface(
+                                modifier = Modifier.fillMaxWidth(),
+                                color = Color(0xFFE65100).copy(alpha = 0.12f),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Text(
+                                    text = "⏳ Loading shop details...",
+                                    color = Color(0xFFFFCC80),
+                                    fontSize = 13.sp,
+                                    modifier = Modifier.padding(12.dp)
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(8.dp))
+                        }
+
                         Button(
                             onClick = {
-                                currentUser?.let { user ->
-                                    shop?.let { s ->
-                                        customerViewModel.createBooking(
-                                            user.userId, user.name, user.phone, user.email,
-                                            service.shopId, s.shopName, s.ownerId,
-                                            service.itemId, service.name, service.price, service.duration,
-                                            selectedDate, selectedTime, selectedLocation,
-                                            address, city, pincode, notes
-                                        )
-                                    }
+                                Log.d(TAG, "🔘 CONFIRM BOOKING clicked")
+                                Log.d(TAG, "👤 currentUser=${currentUser?.userId}, shop=${shop?.shopId}")
+                                Log.d(TAG, "📅 date=$selectedDate, time=$selectedTime, location=$selectedLocation")
+
+                                val user = currentUser
+                                if (user == null) {
+                                    Log.e(TAG, "❌ Cannot book — currentUser is null (not logged in?)")
+                                    return@Button
                                 }
+                                if (shop == null) {
+                                    Log.e(TAG, "❌ Cannot book — shopDetails not loaded yet (shopDetailsState=${shopDetailsState::class.simpleName})")
+                                    return@Button
+                                }
+
+                                Log.d(TAG, "🚀 Calling createBooking — shopId=${shop.shopId}, serviceId=${service.itemId}")
+                                customerViewModel.createBooking(
+                                    user.userId, user.name, user.phone, user.email,
+                                    service.shopId, shop.shopName, shop.ownerId,
+                                    service.itemId, service.name, service.price, service.duration,
+                                    selectedDate, selectedTime, selectedLocation,
+                                    address, city, pincode, notes
+                                )
                             },
                             modifier = Modifier.fillMaxWidth().height(60.dp),
                             shape = RoundedCornerShape(16.dp),
                             colors = ButtonDefaults.buttonColors(containerColor = electricBlue),
-                            enabled = !isBookingInProgress && selectedDate.isNotEmpty() && selectedTime.isNotEmpty() &&
+                            enabled = !isBookingInProgress && shop != null && selectedDate.isNotEmpty() && selectedTime.isNotEmpty() &&
                                     (selectedLocation != ServiceLocation.CUSTOMER_HOME || (address.isNotBlank() && city.isNotBlank()))
                         ) {
                             if (isBookingInProgress) {

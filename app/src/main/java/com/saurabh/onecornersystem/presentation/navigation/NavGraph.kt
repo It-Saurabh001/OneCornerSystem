@@ -1,5 +1,6 @@
 package com.saurabh.onecornersystem.presentation.navigation
 
+import android.net.Uri
 import android.util.Log
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -30,6 +31,7 @@ import com.saurabh.onecornersystem.data.model.ShopType
 import com.saurabh.onecornersystem.presentation.auth.LoginScreen
 import com.saurabh.onecornersystem.presentation.auth.RegisterScreen
 import com.saurabh.onecornersystem.presentation.auth.viewmodel.AuthViewModel
+import com.saurabh.onecornersystem.presentation.common.ChatViewModel
 import com.saurabh.onecornersystem.presentation.common.ProfileScreen
 import com.saurabh.onecornersystem.presentation.customer.*
 import com.saurabh.onecornersystem.presentation.customer.viewmodel.CustomerShopViewModel
@@ -43,7 +45,8 @@ import com.saurabh.onecornersystem.utils.Resource
 fun AppNavGraph(
     authViewModel: AuthViewModel,
     customerShopViewModel: CustomerShopViewModel,
-    shopViewModel: ShopViewModel
+    shopViewModel: ShopViewModel,
+    chatViewModel: ChatViewModel
 ) {
     val navController = rememberNavController()
     val isLoggedIn by authViewModel.isLoggedIn.collectAsState(initial = false)
@@ -51,6 +54,15 @@ fun AppNavGraph(
     val currentUser by authViewModel.currentUser.collectAsState()
 
     Log.d("AppNavGraph", "isLoggedIn: $isLoggedIn, userRole: $userRole, currentUser: $currentUser")
+
+    // ── Populate chatViewModel with the real display name & avatar ─────────────
+    // This ensures new chat documents store the actual user name, not "Customer"
+    LaunchedEffect(currentUser) {
+        currentUser?.let { user ->
+            chatViewModel.updateUserInfo(name = user.name, image = user.profileImage)
+            Log.d("AppNavGraph", "💬 Chat user info synced: name=${user.name}")
+        }
+    }
 
     NavHost(
         navController = navController,
@@ -256,7 +268,7 @@ fun AppNavGraph(
             val ownerId = currentUser?.userId ?: ""
             Log.d("NavGraph_ShopOwnerHome", "ShopOwnerHome Screen displayed - ownerId: $ownerId")
 
-            ShopOwnerHomeScreen1(
+            ShopOwnerHomeScreen(
                 navController = navController,
                 ownerId = ownerId
             )
@@ -630,6 +642,81 @@ fun AppNavGraph(
             )
         }
 
+        composable(Screen.CustomerChatList.route) {
+            CustomerChatListScreen(navController = navController, chatViewModel)
+        }
+
+        // Customer Chat — receives shopId/shopName/bookingId as nav args
+        // so the screen itself (not the caller) calls startChat* on the correct VM
+        composable(
+            route = Screen.CustomerChat.route,
+            arguments = listOf(
+                navArgument("bookingId") { type = NavType.StringType; defaultValue = "" },
+                navArgument("shopId")    { type = NavType.StringType; defaultValue = "" },
+                navArgument("shopName")  { type = NavType.StringType; defaultValue = "" },
+                navArgument("shopImage") { type = NavType.StringType; defaultValue = "" }
+            )
+        ) { backStackEntry ->
+            val bookingId = backStackEntry.arguments?.getString("bookingId") ?: ""
+            val shopId    = backStackEntry.arguments?.getString("shopId")    ?: ""
+            val shopName  = Uri.decode(backStackEntry.arguments?.getString("shopName")  ?: "")
+            val shopImage = Uri.decode(backStackEntry.arguments?.getString("shopImage") ?: "")
+            Log.d("NavGraph_CustomerChat", "CustomerChat opened — bookingId=$bookingId shopId=$shopId shopName=$shopName")
+            CustomerChatScreen(
+                navController = navController,
+                viewModel     = chatViewModel,
+                bookingId     = bookingId,
+                shopId        = shopId,
+                shopName      = shopName,
+                shopImage     = shopImage
+            )
+        }
+
+        composable(Screen.ShopChatList.route) {
+            // Ensure the shop is loaded (may not be if user navigated here directly)
+            LaunchedEffect(currentUser?.userId) {
+                currentUser?.userId?.takeIf { it.isNotBlank() }?.let {
+                    shopViewModel.getMyShop(it)
+                }
+            }
+            val myShopState by shopViewModel.myShopState.collectAsState()
+            val shopId = (myShopState as? Resource.Success)?.data?.shopId ?: ""
+            LaunchedEffect(shopId) {
+                if (shopId.isNotBlank()) chatViewModel.loadShopChats(shopId)
+            }
+            ShopChatListScreen(navController = navController, viewModel = chatViewModel, shopId = shopId)
+        }
+
+// Shop Chat
+        composable(
+            route = Screen.ShopChat.route,
+            arguments = listOf(
+                navArgument("shopId")      { type = NavType.StringType },
+                navArgument("shopName")    { type = NavType.StringType },
+                navArgument("customerId")  { type = NavType.StringType },
+                navArgument("customerName") { type = NavType.StringType },
+                navArgument("bookingId")   { type = NavType.StringType; defaultValue = "" }
+            )
+        ) { backStackEntry ->
+            val shopId       = backStackEntry.arguments?.getString("shopId") ?: ""
+            val shopName     = backStackEntry.arguments?.getString("shopName")?.let { android.net.Uri.decode(it) } ?: ""
+            val customerId   = backStackEntry.arguments?.getString("customerId") ?: ""
+            val customerName = backStackEntry.arguments?.getString("customerName")?.let { android.net.Uri.decode(it) } ?: ""
+            val bookingId    = backStackEntry.arguments?.getString("bookingId") ?: ""
+
+            Log.d("NavGraph_ShopChat", "ShopChat opened — shop=$shopName customer=$customerName bookingId=$bookingId")
+
+            ShopChatScreen(
+                navController = navController,
+                shopId        = shopId,
+                shopName      = shopName,
+                customerId    = customerId,
+                customerName  = customerName,
+                bookingId     = bookingId,
+                viewModel     = chatViewModel
+            )
+        }
+
         // ============= COMMON SCREENS =============
         composable(Screen.Cart.route) {
             Log.d("NavGraph_Cart", "Cart Screen displayed")
@@ -697,7 +784,7 @@ fun AppNavGraph(
                     },
                     onFavoritesClick = {
                         navController.navigate(Screen.Favorites.route)
-                    }
+                    },
                 )
             } else {
                 Log.d("NavGraph_Profile", "Current user is null")
@@ -730,6 +817,7 @@ fun PlaceholderScreen(
     }
 }
 
+// ============= SCREEN ROUTES =============
 sealed class Screen(val route: String) {
     // Splash & Auth
     object Splash : Screen("splash")
@@ -754,7 +842,32 @@ sealed class Screen(val route: String) {
     }
     object AllServices : Screen("all_services")
 
-    // Customer Product Screens (for product-based shops)
+    // Customer Chat Routes
+    object CustomerChatList : Screen("customer_chat_list")
+    object CustomerChat : Screen("customer_chat?bookingId={bookingId}&shopId={shopId}&shopName={shopName}&shopImage={shopImage}") {
+        /** Build a navigation URI — all params are URL-encoded. */
+        fun navigate(
+            shopId: String,
+            shopName: String,
+            shopImage: String = "",
+            bookingId: String = ""
+        ) = "customer_chat?bookingId=${Uri.encode(bookingId)}&shopId=${Uri.encode(shopId)}&shopName=${Uri.encode(shopName)}&shopImage=${Uri.encode(shopImage)}"
+    }
+
+    // Shop Owner Chat Routes
+    object ShopChatList : Screen("shop_chat_list")
+    object ShopChat : Screen("shop_chat/{shopId}/{shopName}/{customerId}/{customerName}?bookingId={bookingId}") {
+        fun passArgs(
+            shopId: String,
+            shopName: String,
+            customerId: String,
+            customerName: String,
+            bookingId: String = ""
+        ): String {
+            return "shop_chat/$shopId/${Uri.encode(shopName)}/$customerId/${Uri.encode(customerName)}?bookingId=${Uri.encode(bookingId)}"
+        }
+    }
+    // Customer Product Screens
     object ShopDetails : Screen("shop_details/{shopId}") {
         fun passShopId(shopId: String) = "shop_details/$shopId"
     }
@@ -794,10 +907,6 @@ sealed class Screen(val route: String) {
         fun passItemId(itemId: String) = "edit_product/$itemId"
     }
 
-    object ServiceDetailsCustomer : Screen("service_details_customer/{itemId}") {
-        fun passItemId(itemId: String) = "service_details_customer/$itemId"
-    }
-
     // Services
     object ServiceList : Screen("services/{shopId}") {
         fun passShopId(shopId: String) = "services/$shopId"
@@ -807,6 +916,11 @@ sealed class Screen(val route: String) {
     }
     object EditService : Screen("edit_service/{itemId}") {
         fun passItemId(itemId: String) = "edit_service/$itemId"
+    }
+
+    // Customer Service Details
+    object ServiceDetailsCustomer : Screen("service_details_customer/{itemId}") {
+        fun passItemId(itemId: String) = "service_details_customer/$itemId"
     }
 
     // Common

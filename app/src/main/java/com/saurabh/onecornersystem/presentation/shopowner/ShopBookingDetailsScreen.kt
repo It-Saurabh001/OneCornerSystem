@@ -16,10 +16,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -27,6 +25,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import com.saurabh.onecornersystem.data.model.BookingStatus
 import com.saurabh.onecornersystem.data.model.ServiceLocation
+import com.saurabh.onecornersystem.presentation.navigation.Screen
 import com.saurabh.onecornersystem.presentation.shopowner.viewmodel.ShopViewModel
 import com.saurabh.onecornersystem.utils.Resource
 import java.text.SimpleDateFormat
@@ -39,6 +38,7 @@ fun ShopBookingDetailsScreen(
     bookingId: String,
     navController: NavController,
     viewModel: ShopViewModel = hiltViewModel()
+    // chatViewModel has been completely removed from here!
 ) {
     val bookingDetailsState by viewModel.shopBookingDetailsState.collectAsStateWithLifecycle()
     val updateStatusState by viewModel.updateBookingStatusState.collectAsStateWithLifecycle()
@@ -46,7 +46,6 @@ fun ShopBookingDetailsScreen(
     // --- THEME COLORS ---
     val amberOrange = Color(0xFFFF9100)
     val deepBlack = Color(0xFF0A0A0A)
-    val glassWhite = Color.White.copy(alpha = 0.05f)
     val outlineWhite = Color.White.copy(alpha = 0.1f)
 
     var showActionDialog by remember { mutableStateOf(false) }
@@ -57,10 +56,21 @@ fun ShopBookingDetailsScreen(
         viewModel.getShopBookingDetails(bookingId)
     }
 
-    Box(modifier = Modifier.fillMaxSize().background(deepBlack)) {
+    Box(modifier = Modifier
+        .fillMaxSize()
+        .background(deepBlack)) {
         // --- LIQUID BLOBS ---
-        Box(modifier = Modifier.size(300.dp).offset(x = 180.dp, y = (-50).dp).blur(100.dp).background(amberOrange.copy(alpha = 0.12f), CircleShape))
-        Box(modifier = Modifier.size(250.dp).align(Alignment.BottomStart).offset(x = (-80).dp, y = 100.dp).blur(90.dp).background(amberOrange.copy(alpha = 0.08f), CircleShape))
+        Box(modifier = Modifier
+            .size(300.dp)
+            .offset(x = 180.dp, y = (-50).dp)
+            .blur(100.dp)
+            .background(amberOrange.copy(alpha = 0.12f), CircleShape))
+        Box(modifier = Modifier
+            .size(250.dp)
+            .align(Alignment.BottomStart)
+            .offset(x = (-80).dp, y = 100.dp)
+            .blur(90.dp)
+            .background(amberOrange.copy(alpha = 0.08f), CircleShape))
 
         Scaffold(
             containerColor = Color.Transparent,
@@ -71,6 +81,30 @@ fun ShopBookingDetailsScreen(
                     navigationIcon = {
                         IconButton(onClick = { navController.popBackStack() }) {
                             Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back", tint = Color.White)
+                        }
+                    },
+                    actions = {
+                        // 👇 FIX 1: Chat Icon in Top Bar
+                        IconButton(onClick = {
+                            val booking = (bookingDetailsState as? Resource.Success)?.data
+                            if (booking != null) {
+                                Log.d("TAG", "Navigating to chat with customer: ${booking.customerName}")
+                                navController.navigate(
+                                    Screen.ShopChat.passArgs(
+                                        shopId       = booking.shopId,
+                                        shopName     = booking.shopName,
+                                        customerId   = booking.customerId,
+                                        customerName = booking.customerName,
+                                        bookingId    = booking.bookingId
+                                    )
+                                )
+                            }
+                        }) {
+                            Icon(
+                                Icons.Default.Chat,
+                                contentDescription = "Chat with Customer",
+                                tint = amberOrange
+                            )
                         }
                     }
                 )
@@ -85,21 +119,60 @@ fun ShopBookingDetailsScreen(
                 is Resource.Success -> {
                     val booking = state.data
                     Column(
-                        modifier = Modifier.fillMaxSize().padding(paddingValues).verticalScroll(rememberScrollState())
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(paddingValues)
+                            .verticalScroll(rememberScrollState())
                     ) {
                         // 1. Sleek Status Banner
                         ShopBookingStatusBannerLiquid(status = booking.status, accent = amberOrange)
 
-                        Column(modifier = Modifier.fillMaxWidth().padding(20.dp)) {
+                        Column(modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(20.dp)) {
                             Text("TICKET ID: #${booking.bookingId.takeLast(8).uppercase()}", color = Color.Gray, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
 
                             Spacer(modifier = Modifier.height(12.dp))
 
-                            // 2. Customer Section
+                            // 2. Customer Section with Chat Button
                             GlassySectionCard("Customer Information", outlineWhite) {
                                 InfoRowLiquid(Icons.Default.Person, "Client Name", booking.customerName, amberOrange)
                                 InfoRowLiquid(Icons.Default.Phone, "Contact", booking.customerPhone, amberOrange)
                                 InfoRowLiquid(Icons.Default.Email, "Email Address", booking.customerEmail, amberOrange)
+
+                                Spacer(modifier = Modifier.height(12.dp))
+
+                                // 👇 FIX 2: Chat Button inside Customer Section
+                                OutlinedButton(
+                                    onClick = {
+                                        navController.navigate(
+                                            Screen.ShopChat.passArgs(
+                                                shopId       = booking.shopId,
+                                                shopName     = booking.shopName,
+                                                customerId   = booking.customerId,
+                                                customerName = booking.customerName,
+                                                bookingId    = booking.bookingId
+                                            )
+                                        )
+                                    },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    shape = RoundedCornerShape(12.dp),
+                                    border = androidx.compose.foundation.BorderStroke(1.dp, amberOrange.copy(alpha = 0.5f))
+                                ) {
+                                    Icon(
+                                        Icons.Default.Chat,
+                                        contentDescription = null,
+                                        tint = amberOrange,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        "MESSAGE CUSTOMER",
+                                        color = amberOrange,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 13.sp
+                                    )
+                                }
                             }
 
                             Spacer(modifier = Modifier.height(8.dp))
@@ -202,12 +275,16 @@ fun ShopBookingStatusBannerLiquid(status: BookingStatus, accent: Color) {
     }
 
     Surface(
-        modifier = Modifier.fillMaxWidth().height(50.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(50.dp),
         color = color.copy(alpha = 0.15f)
     ) {
         Box(contentAlignment = Alignment.Center) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(modifier = Modifier.size(8.dp).background(color, CircleShape))
+                Box(modifier = Modifier
+                    .size(8.dp)
+                    .background(color, CircleShape))
                 Spacer(Modifier.width(12.dp))
                 Text(status.name, color = color, fontWeight = FontWeight.Black, fontSize = 14.sp, letterSpacing = 2.sp)
             }
@@ -217,7 +294,9 @@ fun ShopBookingStatusBannerLiquid(status: BookingStatus, accent: Color) {
 
 @Composable
 fun InfoRowLiquid(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, value: String, accent: Color) {
-    Row(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+    Row(modifier = Modifier
+        .fillMaxWidth()
+        .padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
         Icon(icon, null, tint = accent, modifier = Modifier.size(18.dp))
         Spacer(Modifier.width(16.dp))
         Column {
@@ -238,16 +317,22 @@ fun BookingActionRow(status: BookingStatus, isLoading: Boolean, onAccept: () -> 
         when (status) {
             BookingStatus.PENDING -> {
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Button(onClick = onAccept, modifier = Modifier.weight(1f).height(56.dp), shape = RoundedCornerShape(16.dp), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50))) {
+                    Button(onClick = onAccept, modifier = Modifier
+                        .weight(1f)
+                        .height(56.dp), shape = RoundedCornerShape(16.dp), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50))) {
                         Text("ACCEPT", fontWeight = FontWeight.Black)
                     }
-                    Button(onClick = onReject, modifier = Modifier.weight(1f).height(56.dp), shape = RoundedCornerShape(16.dp), colors = ButtonDefaults.buttonColors(containerColor = Color.Red.copy(alpha = 0.7f))) {
+                    Button(onClick = onReject, modifier = Modifier
+                        .weight(1f)
+                        .height(56.dp), shape = RoundedCornerShape(16.dp), colors = ButtonDefaults.buttonColors(containerColor = Color.Red.copy(alpha = 0.7f))) {
                         Text("REJECT", fontWeight = FontWeight.Black)
                     }
                 }
             }
             BookingStatus.CONFIRMED -> {
-                Button(onClick = onComplete, modifier = Modifier.fillMaxWidth().height(56.dp), shape = RoundedCornerShape(16.dp), colors = ButtonDefaults.buttonColors(containerColor = accent)) {
+                Button(onClick = onComplete, modifier = Modifier
+                    .fillMaxWidth()
+                    .height(56.dp), shape = RoundedCornerShape(16.dp), colors = ButtonDefaults.buttonColors(containerColor = accent)) {
                     Text("MARK AS COMPLETED", fontWeight = FontWeight.Black)
                 }
             }
@@ -268,22 +353,3 @@ private fun formatTime(timeStr: String): String = try {
     hour = if (hour > 12) hour - 12 else if (hour == 0) 12 else hour
     "$hour:${parts[1]} $amPm"
 } catch (e: Exception) { timeStr }
-
-// --- PREVIEW ---
-@Preview(showBackground = true)
-@Composable
-fun ShopBookingDetailsPreview() {
-    MaterialTheme {
-        Box(modifier = Modifier.fillMaxSize().background(Color(0xFF0A0A0A))) {
-            Column(modifier = Modifier.padding(24.dp)) {
-                Text("Booking Details Preview", color = Color.White, fontWeight = FontWeight.Bold)
-                Spacer(modifier = Modifier.height(20.dp))
-                ShopBookingStatusBannerLiquid(BookingStatus.PENDING, Color(0xFFFF9100))
-                Spacer(modifier = Modifier.height(20.dp))
-                GlassySectionCard("Mock Section", Color.White.copy(0.1f)) {
-                    Text("Sample Detail Row", color = Color.Gray)
-                }
-            }
-        }
-    }
-}

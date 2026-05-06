@@ -121,7 +121,7 @@ class CustomerShopViewModel @Inject constructor(
     init {
         Log.d(TAG, "========== CustomerShopViewModel Initialized ==========")
 
-        // 🔴 MOCK DATA COMMENTED OUT - Using real repository data
+        // MOCK DATA COMMENTED OUT - Using real repository data
         /*
         viewModelScope.launch {
             Log.d(TAG, "⚠️ Creating mock data for testing (TEMPORARY)")
@@ -152,11 +152,11 @@ class CustomerShopViewModel @Inject constructor(
                 )
             )
             _nearbyServiceShopsState.value = Resource.Success(mockShops)
-            Log.d(TAG, "✅ Mock data set to _nearbyServiceShopsState")
+            Log.d(TAG, "Mock data set to _nearbyServiceShopsState")
         }
         */
 
-        Log.d(TAG, "✅ Mock data disabled - using real repository data")
+        Log.d(TAG, "Mock data disabled - using real repository data")
     }
 
     // ============= COMBINED LOADING STATE =============
