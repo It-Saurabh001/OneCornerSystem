@@ -31,6 +31,16 @@ fun ShopChatListScreen(
 ) {
     val chatsState by viewModel.chatsState.collectAsStateWithLifecycle()
 
+    LaunchedEffect(shopId) {
+        Log.d("ShopChatListScreen", "🚀 ShopChatListScreen opened with shopId: '$shopId'")
+        if (shopId.isNotBlank()) {
+            Log.d("ShopChatListScreen", "📡 Triggering viewModel.loadShopChats($shopId)")
+            viewModel.loadShopChats(shopId)
+        } else {
+            Log.w("ShopChatListScreen", "⚠️ Received blank shopId, waiting for update...")
+        }
+    }
+
     Box(modifier = Modifier.fillMaxSize().background(ChatColors.DeepBlack)) {
         ChatLiquidBackground()
 
@@ -82,6 +92,7 @@ fun ShopChatListScreen(
                     }
                 }
                 is Resource.Success -> {
+                    Log.d("ShopChatListScreen", "✅ Render: Success with ${state.data.size} chats")
                     if (state.data.isEmpty()) {
                         Column(
                             modifier = Modifier
@@ -122,6 +133,7 @@ fun ShopChatListScreen(
                                     chat = chat,
                                     isShopOwner = true,
                                     onClick = {
+                                        Log.d("ShopChatListScreen", "👆 Clicked chat: ${chat.chatId} for booking: ${chat.bookingId}")
                                         viewModel.setCurrentChat(chat)
                                         navController.navigate(
                                             Screen.ShopChat.passArgs(
@@ -139,6 +151,7 @@ fun ShopChatListScreen(
                     }
                 }
                 is Resource.Error -> {
+                    Log.e("ShopChatListScreen", "❌ Render: Error - ${state.message}")
                     Box(
                         modifier = Modifier.fillMaxSize(),
                         contentAlignment = Alignment.Center

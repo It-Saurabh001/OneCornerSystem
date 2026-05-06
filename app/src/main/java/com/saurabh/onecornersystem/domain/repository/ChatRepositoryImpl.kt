@@ -168,22 +168,34 @@ class ChatRepositoryImpl @Inject constructor(
 
     override fun listenToShopChats(shopId: String): Flow<Resource<List<Chat>>> = callbackFlow {
         trySend(Resource.Loading)
+        Log.d("ChatRepository", "🔍 Starting to listen to chats for shopId: $shopId")
 
         val listener = chatsCollection
             .whereEqualTo("shopId", shopId)
-            .orderBy("updatedAt", Query.Direction.DESCENDING)
+            // Removed .orderBy("updatedAt", Query.Direction.DESCENDING) to avoid requiring a composite index in Firestore
             .addSnapshotListener { snapshot, error ->
                 if (error != null) {
+                    Log.e("ChatRepository", "❌ Failed to listen shop chats: ${error.message}", error)
                     trySend(Resource.Error(error.message ?: "Failed to listen shop chats"))
                     return@addSnapshotListener
                 }
 
                 val chats = snapshot?.toObjects(Chat::class.java) ?: emptyList()
-                trySend(Resource.Success(chats))
-                Log.d("ChatRepository", "${chats.size} chats for shop $shopId")
+                // Sort locally to avoid index requirements
+                val sortedChats = chats.sortedByDescending { it.updatedAt }
+                
+                Log.d("ChatRepository", "✅ Fetched ${sortedChats.size} chats for shop $shopId")
+                sortedChats.forEach { chat ->
+                    Log.d("ChatRepository", "Chat info: ID=${chat.chatId}, Customer=${chat.userName}, LastMsg=${chat.lastMessage}")
+                }
+                
+                trySend(Resource.Success(sortedChats))
             }
 
-        awaitClose { listener.remove() }
+        awaitClose { 
+            Log.d("ChatRepository", "🛑 Stopping chat listener for shopId: $shopId")
+            listener.remove() 
+        }
     }
 
     override fun markMessagesAsRead(chatId: String, readerId: String): Flow<Resource<Boolean>> = flow {
