@@ -31,6 +31,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -59,22 +60,32 @@ fun ShopChatScreen(
     shopName: String,
     customerId: String,
     customerName: String,
+    bookingId: String = "",   // Each booking gets its own chat room
     viewModel: ChatViewModel
 ) {
     val messagesState by viewModel.messagesState.collectAsStateWithLifecycle()
     val currentChat by viewModel.currentChat.collectAsStateWithLifecycle()
 
-    // 👈 Screen open hote hi - Initialize chat, no more dangerous while-loops!
+    // Initialise chat once on the correct shared VM instance
     LaunchedEffect(Unit) {
-        Log.d("ShopChatScreen", "🟢 ShopChatScreen OPENED - Starting chat for $customerName")
+        Log.d("ShopChatScreen", "🟢 Opened — customer=$customerName bookingId=$bookingId")
         viewModel.startChatAsShopOwner(
-            shopId = shopId,
-            shopName = shopName,
-            shopImage = "", // Pass if needed in the future
-            customerId = customerId,
+            shopId       = shopId,
+            shopName     = shopName,
+            shopImage    = "",
+            customerId   = customerId,
             customerName = customerName,
-            customerImage = "" // Pass if needed in the future
+            customerImage = "",
+            bookingId    = bookingId.ifBlank { null }
         )
+    }
+
+    // Reset state when leaving so next chat opens fresh
+    DisposableEffect(Unit) {
+        onDispose {
+            Log.d("ShopChatScreen", "🧹 Disposed — resetting chat states")
+            viewModel.resetChatStates()
+        }
     }
 
     Box(modifier = Modifier.fillMaxSize().background(ChatColors.DeepBlack)) {

@@ -70,7 +70,7 @@ fun AddServiceScreen(
     var showCamera by remember { mutableStateOf(false) }
     var showImageOptions by remember { mutableStateOf(false) }
 
-    val categories = listOf("Automotive", "Beauty", "Repair", "Cleaning", "Plumbing", "Electrical")
+    val categories = listOf("Home Cleaning" , "Appliance Repair", "Plumbing Services", "Electrical Services", "Home Maintenance", "Beauty & Salon", "Health & Fitness", "Education & Tutoring", "Vehicle Services", "Delivery & Moving", "Event & Photography", "Professional Services", "IT & Digital Services", "Domestic Help", "Emergency Services")
     var categoryExpanded by remember { mutableStateOf(false) }
 
     val photoPickerLauncher = rememberLauncherForActivityResult(

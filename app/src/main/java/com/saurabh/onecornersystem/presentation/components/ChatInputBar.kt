@@ -32,9 +32,12 @@ import androidx.compose.ui.unit.sp
 @Composable
 fun ChatInputBar(
     onSendMessage: (String) -> Unit,
-    onAttachImage: () -> Unit = {}
+    onAttachImage: () -> Unit = {},
+    enabled: Boolean = true
 ) {
     var messageText by remember { mutableStateOf("") }
+
+    val canSend = messageText.isNotBlank() && enabled
 
     Surface(
         modifier = Modifier.fillMaxWidth(),
@@ -57,12 +60,13 @@ fun ChatInputBar(
             // Attach button
             IconButton(
                 onClick = onAttachImage,
+                enabled = enabled,
                 modifier = Modifier.size(40.dp)
             ) {
                 Icon(
                     Icons.Default.Check, // Replace with attachment icon
                     contentDescription = "Attach",
-                    tint = ChatColors.TextGray,
+                    tint = if (enabled) ChatColors.TextGray else ChatColors.TextGray.copy(alpha = 0.3f),
                     modifier = Modifier.size(20.dp)
                 )
             }
@@ -72,9 +76,10 @@ fun ChatInputBar(
                 value = messageText,
                 onValueChange = { messageText = it },
                 modifier = Modifier.weight(1f),
+                enabled = enabled,
                 placeholder = {
                     Text(
-                        "Type a message...",
+                        if (enabled) "Type a message..." else "Connecting...",
                         color = ChatColors.TextGray.copy(alpha = 0.6f),
                         fontSize = 14.sp
                     )
@@ -86,7 +91,10 @@ fun ChatInputBar(
                     focusedTextColor = ChatColors.TextWhite,
                     unfocusedTextColor = ChatColors.TextWhite,
                     focusedContainerColor = Color.Transparent,
-                    unfocusedContainerColor = Color.Transparent
+                    unfocusedContainerColor = Color.Transparent,
+                    disabledBorderColor = Color.Transparent,
+                    disabledTextColor = ChatColors.TextGray.copy(alpha = 0.4f),
+                    disabledContainerColor = Color.Transparent
                 ),
                 maxLines = 4,
                 textStyle = androidx.compose.ui.text.TextStyle(fontSize = 15.sp)
@@ -95,22 +103,23 @@ fun ChatInputBar(
             // Send button
             IconButton(
                 onClick = {
-                    if (messageText.isNotBlank()) {
+                    if (canSend) {
                         onSendMessage(messageText.trim())
                         messageText = ""
                     }
                 },
+                enabled = canSend,
                 modifier = Modifier
                     .size(44.dp)
                     .background(
-                        if (messageText.isNotBlank()) ChatColors.AmberOrange else ChatColors.OutlineWhite,
+                        if (canSend) ChatColors.AmberOrange else ChatColors.OutlineWhite,
                         CircleShape
                     )
             ) {
                 Icon(
                     Icons.Default.Send,
                     contentDescription = "Send",
-                    tint = if (messageText.isNotBlank()) Color.Black else ChatColors.TextGray,
+                    tint = if (canSend) Color.Black else ChatColors.TextGray,
                     modifier = Modifier.size(20.dp)
                 )
             }

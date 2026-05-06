@@ -165,7 +165,7 @@ fun HomeDashboardTab(shop: Shop, accent: Color, navController: NavController) {
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     RealtimeStatCard("Avg Rating", String.format("%.1f", shop.rating), Icons.Default.Star, Modifier.weight(1f), accent, outline)
-                    RealtimeStatCard("Inventory", shop.totalItems.toString(), Icons.Default.Inventory2, Modifier.weight(1f), accent, outline)
+                    RealtimeStatCard("Inventory", shop.totalItems.toString(), Icons.Default.Inventory2, Modifier.weight(1f).clickable(onClick = { navController.navigate(route = Screen.ServiceList.route) }), accent, outline)
                 }
             }
         }

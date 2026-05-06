@@ -78,12 +78,10 @@ fun ServiceDetailScreenCustomer(
                         IconButton(onClick = {
                             val service = (serviceState as? Resource.Success)?.data
                             if (service != null) {
-                                chatViewModel.startChatFromShop(
-                                    shopId = service.shopId,
-                                    shopName = "", // Shop name fetch karna padega
-                                    shopImage = ""
+                                val encodedName = android.net.Uri.encode(service.name)
+                                navController.navigate(
+                                    "customer_chat?bookingId=&shopId=${service.shopId}&shopName=$encodedName&shopImage="
                                 )
-                                navController.navigate("customer_chat")
                             }
                         }) {
                             Icon(
@@ -111,12 +109,10 @@ fun ServiceDetailScreenCustomer(
                             // CHAT BUTTON
                             OutlinedButton(
                                 onClick = {
-                                    chatViewModel.startChatFromShop(
-                                        shopId = service.shopId,
-                                        shopName = "",
-                                        shopImage = ""
+                                    val encodedName = android.net.Uri.encode(service.name)
+                                    navController.navigate(
+                                        "customer_chat?bookingId=&shopId=${service.shopId}&shopName=$encodedName&shopImage="
                                     )
-                                    navController.navigate("customer_chat")
                                 },
                                 modifier = Modifier
                                     .weight(0.4f)
@@ -212,12 +208,10 @@ fun ServiceDetailScreenCustomer(
                                 // 👈 QUICK CHAT ICON
                                 IconButton(
                                     onClick = {
-                                        chatViewModel.startChatFromShop(
-                                            shopId = service.shopId,
-                                            shopName = "",
-                                            shopImage = ""
+                                        val encodedName = android.net.Uri.encode(service.name)
+                                        navController.navigate(
+                                            "customer_chat?bookingId=&shopId=${service.shopId}&shopName=$encodedName&shopImage="
                                         )
-                                        navController.navigate("customer_chat")
                                     },
                                     modifier = Modifier
                                         .size(44.dp)
@@ -306,12 +300,10 @@ fun ServiceDetailScreenCustomer(
                                         )
                                     }
                                     TextButton(onClick = {
-                                        chatViewModel.startChatFromShop(
-                                            shopId = service.shopId,
-                                            shopName = "",
-                                            shopImage = ""
+                                        val encodedName = android.net.Uri.encode(service.name)
+                                        navController.navigate(
+                                            "customer_chat?bookingId=&shopId=${service.shopId}&shopName=$encodedName&shopImage="
                                         )
-                                        navController.navigate("customer_chat")
                                     }) {
                                         Text("CHAT", color = electricBlue, fontWeight = FontWeight.Bold)
                                     }

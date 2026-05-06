@@ -162,7 +162,8 @@ class ChatViewModel @Inject constructor(
                 userName = displayName,
                 shopName = shopName,
                 userProfileImage = currentUserImage,
-                shopProfileImage = shopImage
+                shopProfileImage = shopImage,
+                bookingId = "" // general shop chat — no specific booking
             ).collect { result ->
                 handleChatResult(result)
                 _createChatState.value = result
@@ -210,17 +211,10 @@ class ChatViewModel @Inject constructor(
                 userName = displayName,
                 shopName = shopName,
                 userProfileImage = currentUserImage,
-                shopProfileImage = shopImage
+                shopProfileImage = shopImage,
+                bookingId = bookingId // per-booking unique chat room
             ).collect { result ->
                 handleChatResult(result)
-
-                if (result is Resource.Success) {
-                    sendSystemMessage(
-                        chatId = result.data.chatId,
-                        text = "📋 Chat started regarding Booking #${bookingId.take(8)}"
-                    )
-                }
-
                 _createChatState.value = result
             }
         }
@@ -261,17 +255,10 @@ class ChatViewModel @Inject constructor(
                 userName = customerName,
                 shopName = shopName,
                 userProfileImage = customerImage,
-                shopProfileImage = shopImage
+                shopProfileImage = shopImage,
+                bookingId = bookingId ?: ""
             ).collect { result ->
                 handleChatResult(result)
-
-                if (result is Resource.Success && bookingId != null) {
-                    sendSystemMessage(
-                        chatId = result.data.chatId,
-                        text = "📋 Chat regarding Booking #${bookingId.take(8)}"
-                    )
-                }
-
                 _createChatState.value = result
             }
         }
@@ -415,12 +402,14 @@ class ChatViewModel @Inject constructor(
     // ─────────────────────────────────────────────────────────────────────────
 
     fun loadUserChats() {
-        if (currentUserId.isBlank()) {
-            Log.e(TAG, "❌ loadUserChats — userId is blank")
-            return
-        }
-        Log.d(TAG, "📋 loadUserChats userId=$currentUserId")
         viewModelScope.launch {
+            ensureUserLoaded()   // wait for async init before checking
+            if (currentUserId.isBlank()) {
+                Log.e(TAG, "❌ loadUserChats — userId blank even after ensureUserLoaded")
+                _chatsState.value = Resource.Error("User not authenticated")
+                return@launch
+            }
+            Log.d(TAG, "📋 loadUserChats userId=$currentUserId")
             chatRepository.listenToUserChats(currentUserId).collect {
                 _chatsState.value = it
             }
@@ -434,6 +423,7 @@ class ChatViewModel @Inject constructor(
         }
         Log.d(TAG, "📋 loadShopChats shopId=$shopId")
         viewModelScope.launch {
+            ensureUserLoaded()   // sets currentUserId for markAsRead calls
             chatRepository.listenToShopChats(shopId).collect {
                 _chatsState.value = it
             }

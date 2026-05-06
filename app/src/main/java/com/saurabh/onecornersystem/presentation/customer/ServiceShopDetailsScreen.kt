@@ -111,12 +111,11 @@ fun ServiceShopDetailsScreen(
                     val shop = state.data
                     ExtendedFloatingActionButton(
                         onClick = {
-                            chatViewModel.startChatFromShop(
-                                shopId = shop.shopId,
-                                shopName = shop.shopName,
-                                shopImage = shop.logo
+                            val encodedName = android.net.Uri.encode(shop.shopName)
+                            val encodedImage = android.net.Uri.encode(shop.logo)
+                            navController.navigate(
+                                "customer_chat?bookingId=&shopId=${shop.shopId}&shopName=$encodedName&shopImage=$encodedImage"
                             )
-                            navController.navigate("customer_chat")
                         },
                         containerColor = Color(0xFFFF9100),
                         contentColor = Color.White,

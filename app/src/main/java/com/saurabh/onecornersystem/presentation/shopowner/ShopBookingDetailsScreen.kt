@@ -91,10 +91,11 @@ fun ShopBookingDetailsScreen(
                                 Log.d("TAG", "Navigating to chat with customer: ${booking.customerName}")
                                 navController.navigate(
                                     Screen.ShopChat.passArgs(
-                                        shopId = booking.shopId,
-                                        shopName = booking.shopName,
-                                        customerId = booking.customerId,
-                                        customerName = booking.customerName
+                                        shopId       = booking.shopId,
+                                        shopName     = booking.shopName,
+                                        customerId   = booking.customerId,
+                                        customerName = booking.customerName,
+                                        bookingId    = booking.bookingId
                                     )
                                 )
                             }
@@ -146,10 +147,11 @@ fun ShopBookingDetailsScreen(
                                     onClick = {
                                         navController.navigate(
                                             Screen.ShopChat.passArgs(
-                                                shopId = booking.shopId,
-                                                shopName = booking.shopName,
-                                                customerId = booking.customerId,
-                                                customerName = booking.customerName
+                                                shopId       = booking.shopId,
+                                                shopName     = booking.shopName,
+                                                customerId   = booking.customerId,
+                                                customerName = booking.customerName,
+                                                bookingId    = booking.bookingId
                                             )
                                         )
                                     },

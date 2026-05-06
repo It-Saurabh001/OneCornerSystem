@@ -32,6 +32,12 @@ fun CustomerChatListScreen(
 ) {
     val chatsState by viewModel.chatsState.collectAsStateWithLifecycle()
 
+    // Trigger real-time listener — safe to call even if userId isn't ready yet
+    // (loadUserChats now internally calls ensureUserLoaded before querying)
+    LaunchedEffect(Unit) {
+        viewModel.loadUserChats()
+    }
+
     Box(modifier = Modifier.fillMaxSize().background(ChatColors.DeepBlack)) {
         ChatLiquidBackground()
 
@@ -124,7 +130,14 @@ fun CustomerChatListScreen(
                                     isShopOwner = false,
                                     onClick = {
                                         viewModel.setCurrentChat(chat)
-                                        navController.navigate(Screen.CustomerChat.route)
+                                        navController.navigate(
+                                            Screen.CustomerChat.navigate(
+                                                shopId    = chat.shopId,
+                                                shopName  = chat.shopName,
+                                                shopImage = chat.shopProfileImage,
+                                                bookingId = chat.bookingId
+                                            )
+                                        )
                                     }
                                 )
                             }

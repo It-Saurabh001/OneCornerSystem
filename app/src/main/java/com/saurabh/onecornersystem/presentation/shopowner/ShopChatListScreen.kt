@@ -26,12 +26,10 @@ import com.saurabh.onecornersystem.utils.Resource
 @Composable
 fun ShopChatListScreen(
     navController: NavController,
-    viewModel: ChatViewModel = hiltViewModel()
+    viewModel: ChatViewModel = hiltViewModel(),
+    shopId: String = ""  // Passed from NavGraph; loading triggered there via loadShopChats
 ) {
     val chatsState by viewModel.chatsState.collectAsStateWithLifecycle()
-    LaunchedEffect(Unit) {
-        viewModel.loadUserChats()  // Load shop chats
-    }
 
     Box(modifier = Modifier.fillMaxSize().background(ChatColors.DeepBlack)) {
         ChatLiquidBackground()
@@ -125,9 +123,15 @@ fun ShopChatListScreen(
                                     isShopOwner = true,
                                     onClick = {
                                         viewModel.setCurrentChat(chat)
-                                        navController.navigate(Screen.ShopChat.route){
-                                            launchSingleTop = true
-                                        }
+                                        navController.navigate(
+                                            Screen.ShopChat.passArgs(
+                                                shopId       = chat.shopId,
+                                                shopName     = chat.shopName,
+                                                customerId   = chat.userId,
+                                                customerName = chat.userName,
+                                                bookingId    = chat.bookingId
+                                            )
+                                        ) { launchSingleTop = true }
                                     }
                                 )
                             }

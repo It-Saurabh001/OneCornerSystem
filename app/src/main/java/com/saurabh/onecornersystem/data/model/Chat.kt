@@ -7,6 +7,7 @@ data class Chat(
     val chatId: String = "",
     val userId: String = "", // Customer ID
     val shopId: String = "", // Shop ID
+    val bookingId: String = "", // Booking ID — each booking gets its own chat
     val userName: String = "",
     val shopName: String = "",
     val userProfileImage: String = "",

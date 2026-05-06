@@ -30,21 +30,29 @@ class ChatRepositoryImpl @Inject constructor(
         userName: String,
         shopName: String,
         userProfileImage: String,
-        shopProfileImage: String
+        shopProfileImage: String,
+        bookingId: String
     ): Flow<Resource<Chat>> = flow {
         emit(Resource.Loading)
         try {
-            // Check if chat already exists
-            val existingChats = chatsCollection
+            Log.d("ChatRepository", "🔍 getOrCreateChat — userId=$userId, shopId=$shopId, bookingId=$bookingId")
+
+            // Build query — include bookingId so each booking gets its own chat
+            var query = chatsCollection
                 .whereEqualTo("userId", userId)
                 .whereEqualTo("shopId", shopId)
-                .get()
-                .await()
+
+            if (bookingId.isNotBlank()) {
+                query = query.whereEqualTo("bookingId", bookingId)
+            }
+
+            val existingChats = query.get().await()
 
             if (!existingChats.isEmpty) {
                 val doc = existingChats.documents[0]
                 val chat = doc.toObject(Chat::class.java)
                 if (chat != null) {
+                    Log.d("ChatRepository", "✅ Existing chat found — chatId=${doc.id}")
                     emit(Resource.Success(chat.copy(chatId = doc.id)))
                     return@flow
                 }
@@ -56,6 +64,7 @@ class ChatRepositoryImpl @Inject constructor(
                 chatId = chatId,
                 userId = userId,
                 shopId = shopId,
+                bookingId = bookingId,
                 userName = userName,
                 shopName = shopName,
                 userProfileImage = userProfileImage,
@@ -66,11 +75,11 @@ class ChatRepositoryImpl @Inject constructor(
 
             chatsCollection.document(chatId).set(chat).await()
 
+            Log.d("ChatRepository", "✅ New chat created — chatId=$chatId, bookingId=$bookingId")
             emit(Resource.Success(chat))
-            Log.d("ChatRepository", "Chat created: $chatId")
         } catch (e: Exception) {
+            Log.e("ChatRepository", "❌ getOrCreateChat error: ${e.message}", e)
             emit(Resource.Error(e.message ?: "Failed to create chat"))
-            Log.e("ChatRepository", " Create chat error", e)
         }
     }
 

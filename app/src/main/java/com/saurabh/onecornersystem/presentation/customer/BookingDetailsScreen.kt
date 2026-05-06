@@ -24,7 +24,6 @@ import com.saurabh.onecornersystem.data.model.Booking
 import com.saurabh.onecornersystem.data.model.BookingStatus
 import com.saurabh.onecornersystem.data.model.ServiceLocation
 import com.saurabh.onecornersystem.presentation.auth.viewmodel.AuthViewModel
-import com.saurabh.onecornersystem.presentation.common.ChatViewModel
 import com.saurabh.onecornersystem.presentation.customer.viewmodel.CustomerShopViewModel
 import com.saurabh.onecornersystem.utils.Resource
 import java.text.SimpleDateFormat
@@ -38,8 +37,7 @@ fun BookingDetailsScreen(
     bookingId: String,
     navController: NavController,
     viewModel: CustomerShopViewModel = hiltViewModel(),
-    authViewModel: AuthViewModel = hiltViewModel(),
-    chatViewModel: ChatViewModel = hiltViewModel()
+    authViewModel: AuthViewModel = hiltViewModel()
 ) {
     val bookingDetailsState by viewModel.bookingDetailsState.collectAsStateWithLifecycle()
     val cancelBookingState by viewModel.cancelBookingState.collectAsStateWithLifecycle()
@@ -93,13 +91,10 @@ fun BookingDetailsScreen(
                                 booking.status == BookingStatus.CONFIRMED ||
                                 booking.status == BookingStatus.IN_PROGRESS) {
                                 IconButton(onClick = {
-                                    chatViewModel.startChatFromBooking(
-                                        shopId = booking.shopId,
-                                        shopName = booking.shopName,
-                                        shopImage = "",
-                                        bookingId = booking.bookingId
+                                    val encodedName = android.net.Uri.encode(booking.shopName)
+                                    navController.navigate(
+                                        "customer_chat?bookingId=${booking.bookingId}&shopId=${booking.shopId}&shopName=$encodedName&shopImage="
                                     )
-                                    navController.navigate("customer_chat")
                                 }) {
                                     Icon(
                                         Icons.Default.Chat,
@@ -278,13 +273,10 @@ fun BookingDetailsScreen(
 
                                 Button(
                                     onClick = {
-                                        chatViewModel.startChatFromBooking(
-                                            shopId = booking.shopId,
-                                            shopName = booking.shopName,
-                                            shopImage = "",
-                                            bookingId = booking.bookingId
+                                        val encodedName = android.net.Uri.encode(booking.shopName)
+                                        navController.navigate(
+                                            "customer_chat?bookingId=${booking.bookingId}&shopId=${booking.shopId}&shopName=$encodedName&shopImage="
                                         )
-                                        navController.navigate("customer_chat")
                                     },
                                     modifier = Modifier
                                         .fillMaxWidth()

@@ -14,7 +14,8 @@ interface ChatRepository {
         userName: String,
         shopName: String,
         userProfileImage: String,
-        shopProfileImage: String
+        shopProfileImage: String,
+        bookingId: String = ""
     ): Flow<Resource<Chat>>
 
     // Send message

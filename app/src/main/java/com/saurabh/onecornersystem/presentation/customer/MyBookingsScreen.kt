@@ -31,7 +31,6 @@ import com.saurabh.onecornersystem.data.model.Booking
 import com.saurabh.onecornersystem.data.model.BookingStatus
 import com.saurabh.onecornersystem.data.model.ServiceLocation
 import com.saurabh.onecornersystem.presentation.auth.viewmodel.AuthViewModel
-import com.saurabh.onecornersystem.presentation.common.ChatViewModel
 import com.saurabh.onecornersystem.presentation.customer.viewmodel.CustomerShopViewModel
 import com.saurabh.onecornersystem.utils.Resource
 import java.text.SimpleDateFormat
@@ -45,8 +44,7 @@ private const val TAG = "MyBookingsScreen"
 fun MyBookingsScreen(
     navController: NavController,
     viewModel: CustomerShopViewModel = hiltViewModel(),
-    authViewModel: AuthViewModel = hiltViewModel(),
-    chatViewModel: ChatViewModel = hiltViewModel()
+    authViewModel: AuthViewModel = hiltViewModel()
 ) {
     val myBookingsState by viewModel.myBookingsState.collectAsStateWithLifecycle()
     val currentUser by authViewModel.currentUser.collectAsStateWithLifecycle()
@@ -176,13 +174,10 @@ fun MyBookingsScreen(
                                             navController.navigate("booking_details/${booking.bookingId}")
                                         },
                                         onChatClick = {
-                                            chatViewModel.startChatFromBooking(
-                                                shopId = booking.shopId,
-                                                shopName = booking.shopName,
-                                                shopImage = "",
-                                                bookingId = booking.bookingId
+                                            val encodedName = android.net.Uri.encode(booking.shopName)
+                                            navController.navigate(
+                                                "customer_chat?bookingId=${booking.bookingId}&shopId=${booking.shopId}&shopName=$encodedName&shopImage="
                                             )
-                                            navController.navigate("customer_chat")
                                         }
                                     )
                                 }
