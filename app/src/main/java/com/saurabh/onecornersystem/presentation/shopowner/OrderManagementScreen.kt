@@ -1,8 +1,15 @@
 package com.saurabh.onecornersystem.presentation.shopowner
 
 import android.util.Log
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.ExperimentalAnimationApi
+import androidx.compose.animation.SizeTransform
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.with
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -14,12 +21,14 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -36,8 +45,10 @@ import java.text.SimpleDateFormat
 import java.util.*
 import androidx.compose.ui.tooling.preview.Preview
 import com.saurabh.onecornersystem.presentation.common.ChatViewModel
+import com.saurabh.onecornersystem.presentation.navigation.Screen
+import kotlin.math.abs
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalAnimationApi::class)
 @Composable
 fun OrderManagementScreen(
     shopId: String,
@@ -49,13 +60,18 @@ fun OrderManagementScreen(
     val pendingCount by viewModel.pendingBookingsCount.collectAsStateWithLifecycle()
     val updateStatusState by viewModel.updateBookingStatusState.collectAsStateWithLifecycle()
 
+    var dragOffset by remember {mutableStateOf(0f) }
+    var isDragging by remember {mutableStateOf(false) }
+
+
+
     // Theme Colors
     val amberOrange = Color(0xFFFF9100)
     val deepBlack = Color(0xFF0A0A0A)
     val glassWhite = Color.White.copy(alpha = 0.05f)
     val outlineWhite = Color.White.copy(alpha = 0.1f)
 
-    var selectedTab by remember { mutableStateOf(0) }
+    var selectedTab by rememberSaveable { mutableStateOf(0) }
     var showRejectDialog by remember { mutableStateOf(false) }
     var selectedBooking by remember { mutableStateOf<Booking?>(null) }
     var rejectReason by remember { mutableStateOf("") }
@@ -63,6 +79,14 @@ fun OrderManagementScreen(
 
     LaunchedEffect(shopId) {
         viewModel.listenToShopBookings(shopId)
+    }
+
+    fun switchToPreviousTab(){
+        if(selectedTab > 0) selectedTab--
+    }
+
+    fun switchToNextTab(){
+        if(selectedTab < tabs.size - 1) selectedTab++
     }
 
     Box(modifier = Modifier.fillMaxSize().background(deepBlack)) {
@@ -91,18 +115,6 @@ fun OrderManagementScreen(
                             Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back", tint = Color.White)
                         }
                     },
-                    actions = {
-                        // 💬 Messages button in top bar
-                        IconButton(onClick = {
-                            navController.navigate("shop_chat_list")
-                        }) {
-                            Icon(
-                                Icons.Default.Chat,
-                                contentDescription = "Messages",
-                                tint = amberOrange
-                            )
-                        }
-                    }
                 )
             }
         ) { paddingValues ->
@@ -130,49 +142,102 @@ fun OrderManagementScreen(
                     }
                 }
 
-                // Content
-                when (val state = shopBookingsState) {
-                    is Resource.Loading -> FullLoadingScreenLiquid(amberOrange)
-                    is Resource.Success -> {
-                        val filtered = filterBookings(state.data, selectedTab)
-                        if (filtered.isEmpty()) {
-                            EmptyBookingsPlaceholderLiquid(selectedTab, tabs[selectedTab], amberOrange)
-                        } else {
-                            LazyColumn(
-                                modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
-                                contentPadding = PaddingValues(top = 16.dp, bottom = 80.dp),
-                                verticalArrangement = Arrangement.spacedBy(12.dp)
-                            ) {
-                                items(filtered) { booking ->
-                                    BookingCardLiquid(
-                                        booking = booking,
-                                        accent = amberOrange,
-                                        outline = outlineWhite,
-                                        bg = glassWhite,
-                                        onAccept = { viewModel.updateBookingStatus(booking.bookingId, BookingStatus.CONFIRMED, shopId) },
-                                        onReject = { selectedBooking = booking; showRejectDialog = true },
-                                        onComplete = { viewModel.updateBookingStatus(booking.bookingId, BookingStatus.COMPLETED, shopId) },
-                                        onViewDetails = { navController.navigate("shop_booking_details/${booking.bookingId}") },
-                                        onChatClick = {  // 👈 CHAT BUTTON HANDLER
-                                            chatViewModel.startChatAsShopOwner(
-                                                shopId = booking.shopId,
-                                                shopName = booking.shopName,
-                                                shopImage = "",
-                                                customerId = booking.customerId,
-                                                customerName = booking.customerName,
-                                                customerImage = "",
-                                                bookingId = booking.bookingId
+                Box(
+                    modifier = Modifier
+                    .fillMaxSize()
+                    .pointerInput(Unit){
+                        detectHorizontalDragGestures(
+                            onDragStart = {isDragging = true},
+                            onDragEnd = {
+                                isDragging = false
+                                if(abs(dragOffset)>100f){
+                                    if (dragOffset > 0){
+                                        switchToPreviousTab()
+                                    }else{
+                                        switchToNextTab()
+                                    }
+                                }
+                                dragOffset = 0f
+                            },
+                            onDragCancel = {
+                                isDragging = false
+                                dragOffset = 0f
+
+                            },
+                            onHorizontalDrag = {
+                                change, dragAmount ->
+                                change.consume()
+                                dragOffset += dragAmount
+                            }
+                        )
+                    }
+                ){
+                    AnimatedContent(
+                        targetState = selectedTab,
+                        transitionSpec = {
+                            fadeIn() with fadeOut() using SizeTransform(clip = false)
+                        },
+                        modifier = Modifier.fillMaxSize()
+                    ) {
+
+                        targetTab->
+
+                        when (val state = shopBookingsState) {
+                            is Resource.Loading -> FullLoadingScreenLiquid(amberOrange)
+                            is Resource.Success -> {
+                                val filtered = filterBookings(state.data, targetTab)
+                                if (filtered.isEmpty()) {
+                                    EmptyBookingsPlaceholderLiquid(targetTab, tabs[targetTab], amberOrange)
+                                } else {
+                                    LazyColumn(
+                                        modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
+                                        contentPadding = PaddingValues(top = 16.dp, bottom = 80.dp),
+                                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                                    ) {
+                                        items(filtered) { booking ->
+                                            BookingCardLiquid(
+                                                booking = booking,
+                                                accent = amberOrange,
+                                                outline = outlineWhite,
+                                                bg = glassWhite,
+                                                onAccept = { viewModel.updateBookingStatus(booking.bookingId, BookingStatus.CONFIRMED, shopId) },
+                                                onReject = { selectedBooking = booking; showRejectDialog = true },
+                                                onComplete = { viewModel.updateBookingStatus(booking.bookingId, BookingStatus.COMPLETED, shopId) },
+                                                onViewDetails = { navController.navigate("shop_booking_details/${booking.bookingId}") },
+                                                onChatClick = {  // 👈 CHAT BUTTON HANDLER
+                                                    chatViewModel.startChatAsShopOwner(
+                                                        shopId = booking.shopId,
+                                                        shopName = booking.shopName,
+                                                        shopImage = "",
+                                                        customerId = booking.customerId,
+                                                        customerName = booking.customerName,
+                                                        customerImage = "",
+                                                        bookingId = booking.bookingId
+                                                    )
+                                                    navController.navigate(Screen.ShopChat.passArgs(
+                                                        shopId = booking.shopId,
+                                                        shopName = booking.shopName,
+                                                        customerId = booking.customerId,
+                                                        customerName = booking.customerName,
+                                                        bookingId = booking.bookingId
+                                                    ))
+                                                }
                                             )
-                                            navController.navigate("shop_chat")
                                         }
-                                    )
+                                    }
                                 }
                             }
+                            is Resource.Error -> ErrorCardGlass2(state.message, amberOrange, outlineWhite) { viewModel.listenToShopBookings(shopId) }
+                            else -> {}
                         }
+
                     }
-                    is Resource.Error -> ErrorCardGlass2(state.message, amberOrange, outlineWhite) { viewModel.listenToShopBookings(shopId) }
-                    else -> {}
                 }
+
+
+
+                // Content
+
             }
         }
 
@@ -222,7 +287,7 @@ fun BookingCardLiquid(
     onReject: () -> Unit,
     onComplete: () -> Unit,
     onViewDetails: () -> Unit,
-    onChatClick: () -> Unit = {}  // 👈 CHAT CLICK HANDLER
+    onChatClick: () -> Unit = {}
 ) {
     Surface(
         modifier = Modifier.fillMaxWidth().border(1.dp, Brush.linearGradient(listOf(outline, Color.Transparent)), RoundedCornerShape(24.dp)),
@@ -247,7 +312,7 @@ fun BookingCardLiquid(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     BookingStatusChipLiquid(booking.status, accent)
 
-                    // 💬 Chat Icon Button
+                    // Chat Icon Button
                     IconButton(
                         onClick = onChatClick,
                         modifier = Modifier.size(32.dp)

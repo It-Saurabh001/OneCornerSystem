@@ -83,30 +83,30 @@ fun ShopBookingDetailsScreen(
                             Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back", tint = Color.White)
                         }
                     },
-                    actions = {
-                        // 👇 FIX 1: Chat Icon in Top Bar
-                        IconButton(onClick = {
-                            val booking = (bookingDetailsState as? Resource.Success)?.data
-                            if (booking != null) {
-                                Log.d("TAG", "Navigating to chat with customer: ${booking.customerName}")
-                                navController.navigate(
-                                    Screen.ShopChat.passArgs(
-                                        shopId       = booking.shopId,
-                                        shopName     = booking.shopName,
-                                        customerId   = booking.customerId,
-                                        customerName = booking.customerName,
-                                        bookingId    = booking.bookingId
-                                    )
-                                )
-                            }
-                        }) {
-                            Icon(
-                                Icons.Default.Chat,
-                                contentDescription = "Chat with Customer",
-                                tint = amberOrange
-                            )
-                        }
-                    }
+//                    actions = {
+//                        // 👇 FIX 1: Chat Icon in Top Bar
+//                        IconButton(onClick = {
+//                            val booking = (bookingDetailsState as? Resource.Success)?.data
+//                            if (booking != null) {
+//                                Log.d("TAG", "Navigating to chat with customer: ${booking.customerName}")
+//                                navController.navigate(
+//                                    Screen.ShopChat.passArgs(
+//                                        shopId       = booking.shopId,
+//                                        shopName     = booking.shopName,
+//                                        customerId   = booking.customerId,
+//                                        customerName = booking.customerName,
+//                                        bookingId    = booking.bookingId
+//                                    )
+//                                )
+//                            }
+//                        }) {
+//                            Icon(
+//                                Icons.Default.Chat,
+//                                contentDescription = "Chat with Customer",
+//                                tint = amberOrange
+//                            )
+//                        }
+//                    }
                 )
             }
         ) { paddingValues ->

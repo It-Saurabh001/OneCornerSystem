@@ -56,7 +56,6 @@ fun AppNavGraph(
 
     Log.d("AppNavGraph", "isLoggedIn: $isLoggedIn, userRole: $userRole, currentUser: $currentUser")
 
-    // ── Populate chatViewModel with the real display name & avatar ─────────────
     // This ensures new chat documents store the actual user name, not "Customer"
     LaunchedEffect(currentUser) {
         currentUser?.let { user ->
@@ -69,7 +68,6 @@ fun AppNavGraph(
         navController = navController,
         startDestination = Screen.Splash.route
     ) {
-        // ============= SPLASH =============
         composable(Screen.Splash.route) {
             Log.d("NavGraph_Splash", "Splash Screen displayed - isLoggedIn: $isLoggedIn, userRole: $userRole")
             SplashScreen(
@@ -98,8 +96,6 @@ fun AppNavGraph(
                 }
             )
         }
-
-        // ============= AUTH =============
         composable(Screen.Login.route) {
             Log.d("NavGraph_Login", "Login Screen displayed")
             LoginScreen(
