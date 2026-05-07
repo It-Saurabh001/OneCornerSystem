@@ -37,6 +37,12 @@ class ChatViewModel @Inject constructor(
     // Tracks the active message-listener job so we don't open duplicate listeners
     private var messageListenerJob: Job? = null
 
+    // Tracks the active shop-chats listener job
+    private var shopChatsJob: Job? = null
+
+    // Guards loadShopChats from restarting when already listening to same shopId
+    private var currentlyListeningShopId: String = ""
+
     // ─────────────────────────────────────────────────────────────────────────
     // Public state flows
     // ─────────────────────────────────────────────────────────────────────────
@@ -421,10 +427,20 @@ class ChatViewModel @Inject constructor(
             Log.e(TAG, "❌ loadShopChats — shopId is blank")
             return
         }
-        Log.d(TAG, "📋 loadShopChats shopId=$shopId")
-        viewModelScope.launch {
-            ensureUserLoaded()   // sets currentUserId for markAsRead calls
+        // Idempotency guard: skip if already actively listening to the same shopId.
+        // Without this, both NavGraph and Screen calling loadShopChats causes
+        // the Success→Loading→Success loop (each call cancels the previous listener).
+        if (shopId == currentlyListeningShopId && shopChatsJob?.isActive == true) {
+            Log.d(TAG, "⏭️ loadShopChats — already listening to $shopId, skipping duplicate call")
+            return
+        }
+        currentlyListeningShopId = shopId
+        Log.d(TAG, "📋 loadShopChats — starting new listener for shopId=$shopId")
+        shopChatsJob?.cancel()
+        shopChatsJob = viewModelScope.launch {
+            ensureUserLoaded()
             chatRepository.listenToShopChats(shopId).collect {
+                Log.d(TAG, "📋 loadShopChats emission: ${it::class.simpleName}")
                 _chatsState.value = it
             }
         }
@@ -471,11 +487,12 @@ class ChatViewModel @Inject constructor(
      * Does NOT clear the cache — navigate back and forth remains instant.
      */
     fun resetChatStates() {
-        Log.d(TAG, "🔄 resetChatStates()")
+        Log.d(TAG, "🔄 resetChatStates() — clearing per-conversation state only")
         messageListenerJob?.cancel()
         messageListenerJob = null
         isChatInitialized = false
-        _chatsState.value = Resource.Idle
+        // NOTE: _chatsState is NOT reset here — the chat list should survive
+        // navigation back from an individual chat screen.
         _messagesState.value = Resource.Idle
         _currentChat.value = null
         _sendMessageState.value = Resource.Idle

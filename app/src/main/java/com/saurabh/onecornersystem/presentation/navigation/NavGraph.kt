@@ -33,6 +33,7 @@ import com.saurabh.onecornersystem.presentation.auth.RegisterScreen
 import com.saurabh.onecornersystem.presentation.auth.viewmodel.AuthViewModel
 import com.saurabh.onecornersystem.presentation.common.ChatViewModel
 import com.saurabh.onecornersystem.presentation.common.ProfileScreen
+import com.saurabh.onecornersystem.presentation.components.ChatColors
 import com.saurabh.onecornersystem.presentation.customer.*
 import com.saurabh.onecornersystem.presentation.customer.viewmodel.CustomerShopViewModel
 import com.saurabh.onecornersystem.presentation.shopowner.*
@@ -673,18 +674,29 @@ fun AppNavGraph(
         }
 
         composable(Screen.ShopChatList.route) {
-            // Ensure the shop is loaded (may not be if user navigated here directly)
+            // Ensure the shop is loaded before rendering the list screen.
+            // getMyShop is idempotent in ShopViewModel — calling it again when
+            // myShopState is already Success is a no-op.
             LaunchedEffect(currentUser?.userId) {
                 currentUser?.userId?.takeIf { it.isNotBlank() }?.let {
+                    Log.d("NavGraph", "🏪 ShopChatList: calling getMyShop(userId=$it)")
                     shopViewModel.getMyShop(it)
                 }
             }
             val myShopState by shopViewModel.myShopState.collectAsState()
             val shopId = (myShopState as? Resource.Success)?.data?.shopId ?: ""
-            LaunchedEffect(shopId) {
-                if (shopId.isNotBlank()) chatViewModel.loadShopChats(shopId)
+
+            // Only render the screen once shopId is resolved.
+            // This eliminates the need for the screen to do its own shop lookup.
+            if (shopId.isBlank()) {
+                Box(modifier = androidx.compose.ui.Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator(color = ChatColors.AmberOrange)
+                }
+                Log.d("NavGraph", "🏪 ShopChatList: waiting for shopId (myShopState=${myShopState::class.simpleName})")
+            } else {
+                Log.d("NavGraph", "🏪 ShopChatList: shopId resolved='$shopId', rendering screen")
+                ShopChatListScreen(navController = navController, viewModel = chatViewModel, shopId = shopId)
             }
-            ShopChatListScreen(navController = navController, viewModel = chatViewModel, shopId = shopId)
         }
 
 // Shop Chat

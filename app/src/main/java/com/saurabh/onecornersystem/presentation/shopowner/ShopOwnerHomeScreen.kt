@@ -123,7 +123,7 @@ fun ShopOwnerHomeScreen(
                             0 -> HomeDashboardTab(shop, amberOrange, navController)
                             1 -> OrderManagementScreen(shop.shopId, navController, viewModel)
                             2 -> ServiceListScreen(shop.shopId, navController)
-                            3 -> ShopChatListScreen(navController = navController) // 👈 NEW Messages Tab
+                            3 -> ShopChatListScreen(navController = navController, shopId = shop.shopId) //
                         }
                     }
                     is Resource.Error -> ErrorCardGlass(state.message, amberOrange) { viewModel.getMyShop(ownerId) }

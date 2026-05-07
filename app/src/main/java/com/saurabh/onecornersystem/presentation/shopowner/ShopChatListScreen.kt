@@ -1,5 +1,6 @@
 package com.saurabh.onecornersystem.presentation.shopowner
 
+import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -27,18 +28,21 @@ import com.saurabh.onecornersystem.utils.Resource
 fun ShopChatListScreen(
     navController: NavController,
     viewModel: ChatViewModel = hiltViewModel(),
-    shopId: String = ""  // Passed from NavGraph; loading triggered there via loadShopChats
+    shopId: String  // NavGraph guarantees this is always non-blank before rendering
 ) {
     val chatsState by viewModel.chatsState.collectAsStateWithLifecycle()
 
-    LaunchedEffect(shopId) {
-        Log.d("ShopChatListScreen", "🚀 ShopChatListScreen opened with shopId: '$shopId'")
-        if (shopId.isNotBlank()) {
-            Log.d("ShopChatListScreen", "📡 Triggering viewModel.loadShopChats($shopId)")
-            viewModel.loadShopChats(shopId)
-        } else {
-            Log.w("ShopChatListScreen", "⚠️ Received blank shopId, waiting for update...")
-        }
+    // Safe recompose log — SideEffect does NOT write to Compose state,
+    // so it cannot trigger recompositions (unlike mutableIntStateOf.intValue++).
+    SideEffect {
+        Log.d("ShopChatListScreen", "🔄 Recompose | chatsState=${chatsState::class.simpleName} | shopId='$shopId'")
+    }
+
+    // Single one-time initialization. shopId is guaranteed non-blank by NavGraph.
+    // loadShopChats is idempotent (skips if already listening to same shopId).
+    LaunchedEffect(Unit) {
+        Log.d("ShopChatListScreen", "🚀 LaunchedEffect(Unit) — starting chat listener for shopId='$shopId'")
+        viewModel.loadShopChats(shopId)
     }
 
     Box(modifier = Modifier.fillMaxSize().background(ChatColors.DeepBlack)) {
@@ -151,15 +155,71 @@ fun ShopChatListScreen(
                     }
                 }
                 is Resource.Error -> {
-                    Log.e("ShopChatListScreen", "❌ Render: Error - ${state.message}")
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
+                    Log.e("ShopChatListScreen", "\u274c Render: Error - ${state.message}")
+                    Column(
+                        modifier = Modifier.fillMaxSize().padding(32.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
                     ) {
-                        Text(state.message ?: "Error", color = ChatColors.TextGray)
+                        Text(
+                            text = "\u274c Failed to load chats",
+                            color = ChatColors.TextWhite,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 18.sp
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = state.message ?: "Unknown error",
+                            color = ChatColors.TextGray,
+                            fontSize = 13.sp,
+                            textAlign = TextAlign.Center
+                        )
+                        Spacer(modifier = Modifier.height(24.dp))
+                        Button(
+                            onClick = {
+                                Log.d("ShopChatListScreen", "🔁 Retry tapped for shopId=$shopId")
+                                viewModel.loadShopChats(shopId)
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = ChatColors.AmberOrange)
+                        ) {
+                            Text("Retry", color = androidx.compose.ui.graphics.Color.Black, fontWeight = FontWeight.Bold)
+                        }
                     }
                 }
-                else -> {}
+                else -> {
+                    // Resource.Idle — shopId resolving, show spinner
+                    Log.d("ShopChatListScreen", "\uD83D\uDCA4 State is Idle | shopId='$shopId'")
+                    var showRetry by remember { mutableStateOf(false) }
+                    LaunchedEffect(Unit) {
+                        kotlinx.coroutines.delay(5_000)
+                        showRetry = true
+                    }
+                    Column(
+                        modifier = Modifier.fillMaxSize(),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        CircularProgressIndicator(color = ChatColors.AmberOrange)
+                        if (showRetry) {
+                            Spacer(modifier = Modifier.height(24.dp))
+                            Text(
+                                text = "Taking longer than expected...",
+                                color = ChatColors.TextGray,
+                                fontSize = 13.sp
+                            )
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Button(
+                                onClick = {
+                                    Log.d("ShopChatListScreen", "🔁 Retry from Idle for shopId=$shopId")
+                                    viewModel.loadShopChats(shopId)
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = ChatColors.AmberOrange)
+                            ) {
+                                Text("Retry", color = androidx.compose.ui.graphics.Color.Black, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+                }
             }
         }
     }
