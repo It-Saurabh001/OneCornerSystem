@@ -1,9 +1,12 @@
 package com.saurabh.onecornersystem.presentation.customer
 
 import android.util.Log
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -12,6 +15,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.blur
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -30,6 +35,24 @@ import java.text.SimpleDateFormat
 import java.util.*
 
 private const val TAG = "BookingDetailsScreen"
+
+// Liquid Theme Colors (matching CustomerHomeScreen)
+private val DeepBlack = Color(0xFF0A0A0A)
+private val ElectricBlue = Color(0xFF2979FF)
+private val ElectricBlueDark = Color(0xFF1565C0)
+private val GlassWhite = Color.White.copy(alpha = 0.05f)
+private val GlassWhiteStrong = Color.White.copy(alpha = 0.08f)
+private val OutlineWhite = Color.White.copy(alpha = 0.15f)
+private val SurfaceCard = Color.White.copy(alpha = 0.04f)
+
+// Status Colors (adjusted for dark theme)
+private val StatusPending = Color(0xFFFFB74D)      // Warm orange
+private val StatusConfirmed = ElectricBlue          // Electric blue
+private val StatusInProgress = Color(0xFFCE93D8)   // Soft purple
+private val StatusCompleted = Color(0xFF81C784)    // Soft green
+private val StatusCancelled = Color(0xFFEF5350)    // Soft red
+private val StatusRejected = Color(0xFFEF5350)     // Soft red
+private val StatusNoShow = Color(0xFF9E9E9E)       // Gray
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -74,12 +97,26 @@ fun BookingDetailsScreen(
     }
 
     Scaffold(
+        modifier = Modifier.background(DeepBlack),
+        containerColor = DeepBlack,
         topBar = {
             TopAppBar(
-                title = { Text("Booking Details") },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = Color.Transparent,
+                    titleContentColor = Color.White,
+                    navigationIconContentColor = Color.White,
+                    actionIconContentColor = Color.White
+                ),
+                title = {
+                    Text(
+                        "Booking Details",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 20.sp
+                    )
+                },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = Color.White)
                     }
                 },
                 actions = {
@@ -109,14 +146,34 @@ fun BookingDetailsScreen(
 
                     // Share Button
                     IconButton(onClick = { /* Share booking */ }) {
-                        Icon(Icons.Default.Share, contentDescription = "Share")
+                        Icon(Icons.Default.Share, contentDescription = "Share", tint = ElectricBlue)
                     }
                 }
             )
         },
         snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { paddingValues ->
-        Box(modifier = Modifier.fillMaxSize()) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(DeepBlack)
+        ) {
+            // --- LIQUID BLOBS (Background effect matching CustomerHomeScreen) ---
+            Box(
+                modifier = Modifier
+                    .size(300.dp)
+                    .offset(x = (-50).dp, y = 100.dp)
+                    .blur(120.dp)
+                    .background(ElectricBlue.copy(alpha = 0.15f), CircleShape)
+            )
+            Box(
+                modifier = Modifier
+                    .size(250.dp)
+                    .align(Alignment.TopEnd)
+                    .offset(x = 50.dp, y = (-20).dp)
+                    .blur(100.dp)
+                    .background(ElectricBlue.copy(alpha = 0.1f), CircleShape)
+            )
 
             when (val state = bookingDetailsState) {
                 is Resource.Loading -> {
@@ -125,9 +182,13 @@ fun BookingDetailsScreen(
                         contentAlignment = Alignment.Center
                     ) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            CircularProgressIndicator()
+                            CircularProgressIndicator(color = ElectricBlue)
                             Spacer(modifier = Modifier.height(8.dp))
-                            Text("Loading booking details...", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(
+                                "Loading booking details...",
+                                color = Color.White.copy(alpha = 0.6f),
+                                fontSize = 14.sp
+                            )
                         }
                     }
                 }
@@ -141,8 +202,8 @@ fun BookingDetailsScreen(
                             .padding(paddingValues)
                             .verticalScroll(rememberScrollState())
                     ) {
-                        // Status Banner
-                        StatusBanner(status = booking.status)
+                        // Status Banner (updated to match liquid theme)
+                        LiquidStatusBanner(status = booking.status)
 
                         Column(
                             modifier = Modifier.fillMaxWidth().padding(16.dp)
@@ -151,46 +212,63 @@ fun BookingDetailsScreen(
                             Text(
                                 text = "Booking #${booking.bookingId.takeLast(8)}",
                                 fontSize = 12.sp,
-                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                                color = Color.White.copy(alpha = 0.5f),
                                 modifier = Modifier.padding(bottom = 8.dp)
                             )
 
-                            // Shop and Service Info Card
-                            Card(
-                                modifier = Modifier.fillMaxWidth(),
-                                colors = CardDefaults.cardColors(
-                                    containerColor = MaterialTheme.colorScheme.primaryContainer
-                                )
+                            // Shop and Service Info Card (Glassmorphism)
+                            LiquidInfoCard(
+                                modifier = Modifier.fillMaxWidth()
                             ) {
                                 Column(modifier = Modifier.padding(16.dp)) {
-                                    Text(booking.shopName, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                                    Text(
+                                        booking.shopName,
+                                        fontSize = 20.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color.White
+                                    )
                                     Spacer(modifier = Modifier.height(4.dp))
-                                    Text(booking.serviceName, fontSize = 16.sp, color = MaterialTheme.colorScheme.primary)
+                                    Text(
+                                        booking.serviceName,
+                                        fontSize = 16.sp,
+                                        color = ElectricBlue,
+                                        fontWeight = FontWeight.Medium
+                                    )
                                     Spacer(modifier = Modifier.height(8.dp))
                                     Row(
                                         modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.SpaceBetween
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.Bottom
                                     ) {
-                                        Text("Price", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
-                                        Text("₹${booking.servicePrice}", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                                        Text(
+                                            "Price",
+                                            fontSize = 14.sp,
+                                            color = Color.White.copy(alpha = 0.6f)
+                                        )
+                                        Text(
+                                            "₹${booking.servicePrice}",
+                                            fontSize = 22.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = ElectricBlue
+                                        )
                                     }
                                 }
                             }
 
-                            Spacer(modifier = Modifier.height(16.dp))
+                            Spacer(modifier = Modifier.height(12.dp))
 
                             // Date & Time
-                            InfoCard(
+                            LiquidDetailCard(
                                 icon = Icons.Default.CalendarToday,
                                 title = "Date & Time",
-                                content = "${formatFullDate(booking.bookingDate)} at ${formatTime(booking.bookingTime)}"
+                                content = "${formatFullDate(booking.bookingDate)} at ${formatTime7(booking.bookingTime)}"
                             )
 
                             Spacer(modifier = Modifier.height(12.dp))
 
                             // Location
                             if (booking.serviceLocation == ServiceLocation.CUSTOMER_HOME) {
-                                InfoCard(
+                                LiquidDetailCard(
                                     icon = Icons.Default.Home,
                                     title = "Home Service Address",
                                     content = buildString {
@@ -200,7 +278,7 @@ fun BookingDetailsScreen(
                                     }
                                 )
                             } else {
-                                InfoCard(
+                                LiquidDetailCard(
                                     icon = Icons.Default.Store,
                                     title = "Shop Location",
                                     content = buildString {
@@ -216,7 +294,7 @@ fun BookingDetailsScreen(
 
                             // Duration
                             if (booking.serviceDuration.isNotBlank()) {
-                                InfoCard(
+                                LiquidDetailCard(
                                     icon = Icons.Default.Schedule,
                                     title = "Duration",
                                     content = booking.serviceDuration
@@ -226,7 +304,7 @@ fun BookingDetailsScreen(
 
                             // Customer Contact
                             if (booking.customerPhone.isNotBlank()) {
-                                InfoCard(
+                                LiquidDetailCard(
                                     icon = Icons.Default.Phone,
                                     title = "Customer Contact",
                                     content = "${booking.customerName} - ${booking.customerPhone}"
@@ -236,7 +314,7 @@ fun BookingDetailsScreen(
 
                             // Notes
                             if (booking.notes.isNotBlank()) {
-                                InfoCard(
+                                LiquidDetailCard(
                                     icon = Icons.Default.Notes,
                                     title = "Additional Notes",
                                     content = booking.notes
@@ -247,22 +325,10 @@ fun BookingDetailsScreen(
                             // Cancellation Info
                             if ((booking.status == BookingStatus.CANCELLED || booking.status == BookingStatus.REJECTED)
                                 && booking.cancellationReason.isNotBlank()) {
-                                Card(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    colors = CardDefaults.cardColors(containerColor = Color(0xFFE53935).copy(alpha = 0.1f))
-                                ) {
-                                    Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                                        Icon(Icons.Default.Warning, null, tint = Color(0xFFE53935))
-                                        Spacer(modifier = Modifier.width(8.dp))
-                                        Column {
-                                            Text(
-                                                if (booking.status == BookingStatus.CANCELLED) "Cancellation Reason" else "Rejection Reason",
-                                                fontSize = 12.sp, color = Color(0xFFE53935).copy(alpha = 0.7f)
-                                            )
-                                            Text(booking.cancellationReason, fontSize = 14.sp, color = Color(0xFFE53935))
-                                        }
-                                    }
-                                }
+                                LiquidWarningCard(
+                                    reason = booking.cancellationReason,
+                                    isRejected = booking.status == BookingStatus.REJECTED
+                                )
                                 Spacer(modifier = Modifier.height(12.dp))
                             }
 
@@ -282,7 +348,8 @@ fun BookingDetailsScreen(
                                         .fillMaxWidth()
                                         .height(52.dp),
                                     colors = ButtonDefaults.buttonColors(containerColor = chatColor),
-                                    shape = RoundedCornerShape(12.dp)
+                                    shape = RoundedCornerShape(14.dp),
+                                    elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp)
                                 ) {
                                     Icon(Icons.Default.Chat, contentDescription = null, modifier = Modifier.size(20.dp))
                                     Spacer(modifier = Modifier.width(8.dp))
@@ -294,66 +361,53 @@ fun BookingDetailsScreen(
 
                             Spacer(modifier = Modifier.height(8.dp))
 
-                            // Action Buttons
+                            // Action Buttons (Liquid Style)
                             when (booking.status) {
                                 BookingStatus.PENDING -> {
-                                    Button(
+                                    LiquidDangerButton(
                                         onClick = { showCancelDialog = true },
-                                        modifier = Modifier.fillMaxWidth(),
-                                        enabled = !isLoading,
-                                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE53935))
-                                    ) {
-                                        if (isLoading) {
-                                            CircularProgressIndicator(modifier = Modifier.size(20.dp), color = Color.White)
-                                        } else {
-                                            Text("Cancel Booking")
-                                        }
-                                    }
+                                        isLoading = isLoading,
+                                        text = "Cancel Booking"
+                                    )
                                 }
                                 BookingStatus.CONFIRMED -> {
                                     Row(
                                         modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                        horizontalArrangement = Arrangement.spacedBy(12.dp)
                                     ) {
-                                        OutlinedButton(
+                                        LiquidOutlinedButton(
                                             onClick = { /* Open phone */ },
+                                            icon = Icons.Default.Phone,
+                                            text = "Call Shop",
                                             modifier = Modifier.weight(1f)
-                                        ) {
-                                            Icon(Icons.Default.Phone, null)
-                                            Spacer(modifier = Modifier.width(4.dp))
-                                            Text("Call Shop")
-                                        }
-                                        Button(
+                                        )
+                                        LiquidPrimaryButton(
                                             onClick = { /* Open maps */ },
+                                            icon = Icons.Default.Map,
+                                            text = "Directions",
                                             modifier = Modifier.weight(1f)
-                                        ) {
-                                            Icon(Icons.Default.Map, null)
-                                            Spacer(modifier = Modifier.width(4.dp))
-                                            Text("Directions")
-                                        }
+                                        )
                                     }
                                 }
                                 BookingStatus.COMPLETED -> {
-                                    Button(
+                                    LiquidPrimaryButton(
                                         onClick = { /* Rate service */ },
+                                        icon = Icons.Default.Star,
+                                        text = "Rate This Service",
                                         modifier = Modifier.fillMaxWidth()
-                                    ) {
-                                        Icon(Icons.Default.Star, null)
-                                        Spacer(modifier = Modifier.width(4.dp))
-                                        Text("Rate This Service")
-                                    }
+                                    )
                                 }
                                 else -> {
-                                    Button(
+                                    LiquidOutlinedButton(
                                         onClick = { navController.popBackStack() },
+                                        icon = Icons.Default.ArrowBack,
+                                        text = "Back to Bookings",
                                         modifier = Modifier.fillMaxWidth()
-                                    ) {
-                                        Text("Back to Bookings")
-                                    }
+                                    )
                                 }
                             }
 
-                            Spacer(modifier = Modifier.height(16.dp))
+                            Spacer(modifier = Modifier.height(24.dp))
                         }
                     }
                 }
@@ -361,15 +415,38 @@ fun BookingDetailsScreen(
                 is Resource.Error -> {
                     Box(modifier = Modifier.fillMaxSize().padding(paddingValues), contentAlignment = Alignment.Center) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(24.dp)) {
-                            Icon(Icons.Default.ErrorOutline, null, modifier = Modifier.size(64.dp), tint = MaterialTheme.colorScheme.error)
+                            Icon(
+                                Icons.Default.ErrorOutline,
+                                null,
+                                modifier = Modifier.size(64.dp),
+                                tint = StatusCancelled
+                            )
                             Spacer(modifier = Modifier.height(16.dp))
-                            Text("Failed to load booking", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.error)
+                            Text(
+                                "Failed to load booking",
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White
+                            )
                             Spacer(modifier = Modifier.height(8.dp))
-                            Text(state.message ?: "Something went wrong", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
-                            Spacer(modifier = Modifier.height(16.dp))
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                OutlinedButton(onClick = { navController.popBackStack() }) { Text("Go Back") }
-                                Button(onClick = { viewModel.getBookingDetails(bookingId) }) { Text("Retry") }
+                            Text(
+                                state.message ?: "Something went wrong",
+                                fontSize = 14.sp,
+                                color = Color.White.copy(alpha = 0.6f),
+                                textAlign = TextAlign.Center
+                            )
+                            Spacer(modifier = Modifier.height(20.dp))
+                            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                LiquidOutlinedButton(
+                                    onClick = { navController.popBackStack() },
+                                    icon = Icons.Default.ArrowBack,
+                                    text = "Go Back"
+                                )
+                                LiquidPrimaryButton(
+                                    onClick = { viewModel.getBookingDetails(bookingId) },
+                                    icon = Icons.Default.Refresh,
+                                    text = "Retry"
+                                )
                             }
                         }
                     }
@@ -379,12 +456,31 @@ fun BookingDetailsScreen(
 
             // Loading Overlay
             if (isLoading) {
-                Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.3f)), contentAlignment = Alignment.Center) {
-                    Card(modifier = Modifier.padding(16.dp), shape = MaterialTheme.shapes.medium) {
-                        Column(modifier = Modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                            CircularProgressIndicator()
-                            Spacer(modifier = Modifier.height(12.dp))
-                            Text("Processing...", fontWeight = FontWeight.Medium)
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color.Black.copy(alpha = 0.7f))
+                        .blur(8.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Surface(
+                        modifier = Modifier.padding(24.dp),
+                        shape = RoundedCornerShape(20.dp),
+                        color = GlassWhiteStrong,
+                        border = BorderStroke(1.dp, OutlineWhite)
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(32.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            CircularProgressIndicator(color = ElectricBlue)
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Text(
+                                "Processing...",
+                                fontWeight = FontWeight.Medium,
+                                color = Color.White,
+                                fontSize = 14.sp
+                            )
                         }
                     }
                 }
@@ -392,21 +488,42 @@ fun BookingDetailsScreen(
         }
     }
 
-    // Cancel Dialog
+    // Cancel Dialog (FIXED for Material3)
     if (showCancelDialog) {
         AlertDialog(
             onDismissRequest = { showCancelDialog = false; cancelReason = "" },
-            title = { Text("Cancel Booking") },
+            shape = RoundedCornerShape(20.dp),
+            containerColor = SurfaceCard,
+            title = {
+                Text(
+                    "Cancel Booking",
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 18.sp
+                )
+            },
             text = {
                 Column {
-                    Text("Are you sure you want to cancel this booking?", fontSize = 14.sp)
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        "Are you sure you want to cancel this booking?",
+                        fontSize = 14.sp,
+                        color = Color.White.copy(alpha = 0.7f)
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
                     OutlinedTextField(
                         value = cancelReason,
                         onValueChange = { cancelReason = it },
-                        label = { Text("Reason for cancellation (optional)") },
+                        label = { Text("Reason for cancellation (optional)", color = Color.White.copy(alpha = 0.5f)) },
                         modifier = Modifier.fillMaxWidth(),
-                        minLines = 2
+                        minLines = 2,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = ElectricBlue,
+                            unfocusedBorderColor = OutlineWhite,
+                            focusedTextColor = Color.White,
+                            unfocusedTextColor = Color.White,
+                            focusedLabelColor = ElectricBlue,
+                            unfocusedLabelColor = Color.White.copy(alpha = 0.5f)
+                        )
                     )
                 }
             },
@@ -418,81 +535,104 @@ fun BookingDetailsScreen(
                         }
                         showCancelDialog = false
                     },
-                    colors = ButtonDefaults.textButtonColors(contentColor = Color(0xFFE53935))
-                ) { Text("Confirm Cancel") }
+                    colors = ButtonDefaults.textButtonColors(contentColor = StatusCancelled)
+                ) {
+                    Text("Confirm Cancel", fontWeight = FontWeight.Bold)
+                }
             },
             dismissButton = {
-                TextButton(onClick = { showCancelDialog = false; cancelReason = "" }) { Text("Back") }
+                TextButton(
+                    onClick = { showCancelDialog = false; cancelReason = "" },
+                    colors = ButtonDefaults.textButtonColors(contentColor = Color.White.copy(alpha = 0.6f))
+                ) {
+                    Text("Back")
+                }
             }
         )
     }
 }
 
+// ========== LIQUID COMPONENTS (Matching CustomerHomeScreen Style) ==========
+
 @Composable
-fun StatusBanner(status: BookingStatus) {
-    val (backgroundColor, textColor, statusText) = when (status) {
-        BookingStatus.PENDING -> Triple(
-            Color(0xFFFFC107),
-            Color.White,
-            "PENDING"
-        )
-        BookingStatus.CONFIRMED -> Triple(
-            Color(0xFF2196F3),
-            Color.White,
-            "CONFIRMED"
-        )
-        BookingStatus.IN_PROGRESS -> Triple(
-            Color(0xFF9C27B0),
-            Color.White,
-            "IN PROGRESS"
-        )
-        BookingStatus.COMPLETED -> Triple(
-            Color(0xFF4CAF50),
-            Color.White,
-            "COMPLETED"
-        )
-        BookingStatus.CANCELLED -> Triple(
-            Color(0xFFE53935),
-            Color.White,
-            "CANCELLED"
-        )
-        BookingStatus.REJECTED -> Triple(
-            Color(0xFFE53935),
-            Color.White,
-            "REJECTED"
-        )
-        BookingStatus.NO_SHOW -> Triple(
-            Color(0xFF757575),
-            Color.White,
-            "NO SHOW"
-        )
+fun LiquidStatusBanner(status: BookingStatus) {
+    val (backgroundColor, statusText) = when (status) {
+        BookingStatus.PENDING -> Pair(StatusPending.copy(alpha = 0.15f), "PENDING")
+        BookingStatus.CONFIRMED -> Pair(StatusConfirmed.copy(alpha = 0.15f), "CONFIRMED")
+        BookingStatus.IN_PROGRESS -> Pair(StatusInProgress.copy(alpha = 0.15f), "IN PROGRESS")
+        BookingStatus.COMPLETED -> Pair(StatusCompleted.copy(alpha = 0.15f), "COMPLETED")
+        BookingStatus.CANCELLED -> Pair(StatusCancelled.copy(alpha = 0.15f), "CANCELLED")
+        BookingStatus.REJECTED -> Pair(StatusRejected.copy(alpha = 0.15f), "REJECTED")
+        BookingStatus.NO_SHOW -> Pair(StatusNoShow.copy(alpha = 0.15f), "NO SHOW")
     }
 
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(backgroundColor)
-            .padding(vertical = 12.dp),
-        contentAlignment = Alignment.Center
+    val textColor = when (status) {
+        BookingStatus.PENDING -> StatusPending
+        BookingStatus.CONFIRMED -> StatusConfirmed
+        BookingStatus.IN_PROGRESS -> StatusInProgress
+        BookingStatus.COMPLETED -> StatusCompleted
+        BookingStatus.CANCELLED -> StatusCancelled
+        BookingStatus.REJECTED -> StatusRejected
+        BookingStatus.NO_SHOW -> StatusNoShow
+    }
+
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = backgroundColor,
+        shape = RoundedCornerShape(0.dp)
     ) {
-        Text(
-            text = statusText,
-            color = textColor,
-            fontSize = 16.sp,
-            fontWeight = FontWeight.Bold
-        )
+        Box(
+            modifier = Modifier.padding(vertical = 14.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(8.dp)
+                        .clip(CircleShape)
+                        .background(textColor)
+                )
+                Text(
+                    text = statusText,
+                    color = textColor,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 0.5.sp
+                )
+            }
+        }
     }
 }
 
 @Composable
-fun InfoCard(
+fun LiquidInfoCard(
+    modifier: Modifier = Modifier,
+    content: @Composable ColumnScope.() -> Unit
+) {
+    Surface(
+        modifier = modifier
+            .border(1.dp, OutlineWhite, RoundedCornerShape(20.dp)),
+        color = SurfaceCard,
+        shape = RoundedCornerShape(20.dp)
+    ) {
+        Column(content = content)
+    }
+}
+
+@Composable
+fun LiquidDetailCard(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     title: String,
     content: String
 ) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        elevation = CardDefaults.cardElevation(1.dp)
+    Surface(
+        modifier = Modifier.fillMaxWidth()
+            .border(1.dp, OutlineWhite, RoundedCornerShape(16.dp)),
+        color = GlassWhite,
+        shape = RoundedCornerShape(16.dp)
     ) {
         Row(
             modifier = Modifier
@@ -503,26 +643,144 @@ fun InfoCard(
             Icon(
                 icon,
                 contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(20.dp)
+                tint = ElectricBlue,
+                modifier = Modifier.size(22.dp)
             )
             Spacer(modifier = Modifier.width(12.dp))
-            Column {
+            Column(
+                modifier = Modifier.weight(1f)
+            ) {
                 Text(
                     text = title,
                     fontSize = 12.sp,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                    color = Color.White.copy(alpha = 0.5f),
+                    letterSpacing = 0.3.sp
                 )
+                Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     text = content,
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Medium,
+                    color = Color.White,
                     lineHeight = 20.sp
                 )
             }
         }
     }
 }
+
+@Composable
+fun LiquidWarningCard(
+    reason: String,
+    isRejected: Boolean
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth()
+            .border(1.dp, StatusCancelled.copy(alpha = 0.3f), RoundedCornerShape(16.dp)),
+        color = StatusCancelled.copy(alpha = 0.1f),
+        shape = RoundedCornerShape(16.dp)
+    ) {
+        Row(
+            modifier = Modifier.padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                Icons.Default.Warning,
+                null,
+                tint = StatusCancelled,
+                modifier = Modifier.size(24.dp)
+            )
+            Spacer(modifier = Modifier.width(12.dp))
+            Column {
+                Text(
+                    if (isRejected) "Rejection Reason" else "Cancellation Reason",
+                    fontSize = 12.sp,
+                    color = StatusCancelled.copy(alpha = 0.7f),
+                    letterSpacing = 0.3.sp
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    reason,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = StatusCancelled
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun LiquidPrimaryButton(
+    onClick: () -> Unit,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    text: String,
+    modifier: Modifier = Modifier,
+    isLoading: Boolean = false
+) {
+    Button(
+        onClick = onClick,
+        modifier = modifier.height(48.dp),
+        colors = ButtonDefaults.buttonColors(containerColor = ElectricBlue),
+        shape = RoundedCornerShape(14.dp),
+        elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp)
+    ) {
+        if (isLoading) {
+            CircularProgressIndicator(modifier = Modifier.size(20.dp), color = Color.White)
+        } else {
+            Icon(icon, null, modifier = Modifier.size(18.dp))
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(text, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+        }
+    }
+}
+
+@Composable
+fun LiquidOutlinedButton(
+    onClick: () -> Unit,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    text: String,
+    modifier: Modifier = Modifier
+) {
+    OutlinedButton(
+        onClick = onClick,
+        modifier = modifier.height(48.dp),
+        shape = RoundedCornerShape(14.dp),
+        colors = ButtonDefaults.outlinedButtonColors(
+            contentColor = Color.White
+        ),
+        border = BorderStroke(1.dp, OutlineWhite)
+    ) {
+        Icon(icon, null, modifier = Modifier.size(18.dp), tint = ElectricBlue)
+        Spacer(modifier = Modifier.width(8.dp))
+        Text(text, fontWeight = FontWeight.SemiBold, fontSize = 14.sp, color = Color.White)
+    }
+}
+
+@Composable
+fun LiquidDangerButton(
+    onClick: () -> Unit,
+    isLoading: Boolean,
+    text: String
+) {
+    Button(
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth().height(48.dp),
+        colors = ButtonDefaults.buttonColors(containerColor = StatusCancelled),
+        shape = RoundedCornerShape(14.dp),
+        elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp)
+    ) {
+        if (isLoading) {
+            CircularProgressIndicator(modifier = Modifier.size(20.dp), color = Color.White)
+        } else {
+            Icon(Icons.Default.Cancel, null, modifier = Modifier.size(18.dp))
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(text, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+        }
+    }
+}
+
+// ========== HELPER FUNCTIONS ==========
 
 private fun formatFullDate(dateStr: String): String {
     return try {
@@ -535,7 +793,7 @@ private fun formatFullDate(dateStr: String): String {
     }
 }
 
-private fun formatTime1(timeStr: String): String {
+private fun formatTime7(timeStr: String): String {
     return try {
         if (timeStr.contains(":")) {
             val parts = timeStr.split(":")
