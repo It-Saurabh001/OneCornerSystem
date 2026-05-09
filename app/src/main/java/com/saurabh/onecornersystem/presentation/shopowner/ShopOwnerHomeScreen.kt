@@ -65,6 +65,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.saurabh.onecornersystem.data.model.Shop
 import com.saurabh.onecornersystem.data.model.ShopType
+import com.saurabh.onecornersystem.presentation.common.ChatViewModel
 import com.saurabh.onecornersystem.presentation.navigation.Screen
 import com.saurabh.onecornersystem.presentation.shopowner.viewmodel.ShopItemViewModel
 import com.saurabh.onecornersystem.presentation.shopowner.viewmodel.ShopViewModel
@@ -75,14 +76,16 @@ fun ShopOwnerHomeScreen(
     navController: NavController,
     ownerId: String,
     viewModel: ShopViewModel = hiltViewModel(),
-    shopItemViewModel: ShopItemViewModel = hiltViewModel()
+    shopItemViewModel: ShopItemViewModel = hiltViewModel(),
+    chatViewModel: ChatViewModel = hiltViewModel()
 ) {
-    val myShopState by viewModel.myShopState.collectAsState()
-    val pendingBookingsCount by viewModel.pendingBookingsCount.collectAsState()
+    val myShopState          by viewModel.myShopState.collectAsState()
+    val pendingBookingsCount  by viewModel.pendingBookingsCount.collectAsState()
+    val totalChatUnread       by chatViewModel.totalShopUnreadCount.collectAsState()
 
     var selectedTab by rememberSaveable { mutableIntStateOf(0) }
     val amberOrange = Color(0xFFFF9100)
-    val deepBlack = Color(0xFF0A0A0A)
+    val deepBlack   = Color(0xFF0A0A0A)
 
     LaunchedEffect(ownerId) {
         viewModel.getMyShop(ownerId)
@@ -93,6 +96,8 @@ fun ShopOwnerHomeScreen(
         (myShopState as? Resource.Success)?.data?.let { shop ->
             viewModel.listenToShopBookings(shop.shopId)
             shopItemViewModel.getServicesByShop(shop.shopId)
+            // Start real-time unread listener for the Messages badge
+            chatViewModel.listenToShopTotalUnread(shop.shopId)
         }
     }
 
@@ -104,10 +109,11 @@ fun ShopOwnerHomeScreen(
             containerColor = Color.Transparent,
             bottomBar = {
                 OwnerBottomBar(
-                    selectedTab = selectedTab,
-                    onTabSelected = { selectedTab = it },
-                    accent = amberOrange,
-                    pendingCount = pendingBookingsCount
+                    selectedTab      = selectedTab,
+                    onTabSelected    = { selectedTab = it },
+                    accent           = amberOrange,
+                    pendingCount     = pendingBookingsCount,
+                    chatUnreadCount  = totalChatUnread
                 )
             }
         ) { paddingValues ->
@@ -244,13 +250,15 @@ fun OwnerBottomBar(
     selectedTab: Int,
     onTabSelected: (Int) -> Unit,
     accent: Color,
-    pendingCount: Int = 0
+    pendingCount: Int = 0,
+    chatUnreadCount: Int = 0
 ) {
     val items = listOf(
-        Quadruple("Home", Icons.Default.GridView, 0, 0),
-        Quadruple("Orders", Icons.AutoMirrored.Filled.ReceiptLong, 1, pendingCount),
-        Quadruple("Items", Icons.Default.Inventory, 2, 0),
-        Quadruple("Messages", Icons.Default.Chat, 3, 0) // 👈 NEW Messages Tab
+        Quadruple("Home",     Icons.Default.GridView,                 0, 0),
+        Quadruple("Orders",   Icons.AutoMirrored.Filled.ReceiptLong,  1, pendingCount),
+        Quadruple("Items",    Icons.Default.Inventory,                2, 0),
+        // Messages badge driven by real-time shopUnreadCount sum
+        Quadruple("Messages", Icons.Default.Chat,                     3, chatUnreadCount)
     )
 
     Surface(
@@ -275,14 +283,14 @@ fun OwnerBottomBar(
                     modifier = Modifier.clickable { onTabSelected(index) },
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    // Icon with optional badge
+                    // Icon with optional badge — supports 99+ capping
                     if (badgeCount > 0) {
                         BadgedBox(
                             badge = {
                                 Badge(containerColor = Color.Red) {
                                     Text(
-                                        "$badgeCount",
-                                        fontSize = 10.sp,
+                                        if (badgeCount > 99) "99+" else "$badgeCount",
+                                        fontSize = 9.sp,
                                         color = Color.White
                                     )
                                 }

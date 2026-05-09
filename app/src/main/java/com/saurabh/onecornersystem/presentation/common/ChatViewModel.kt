@@ -43,6 +43,10 @@ class ChatViewModel @Inject constructor(
     // Guards loadShopChats from restarting when already listening to same shopId
     private var currentlyListeningShopId: String = ""
 
+    // Tracks the active shop total-unread listener job
+    private var shopTotalUnreadJob: Job? = null
+    private var totalUnreadShopId: String = ""
+
     // ─────────────────────────────────────────────────────────────────────────
     // Public state flows
     // ─────────────────────────────────────────────────────────────────────────
@@ -65,6 +69,14 @@ class ChatViewModel @Inject constructor(
     private val _unreadCount = MutableStateFlow<Resource<Int>>(Resource.Idle)
     val unreadCount: StateFlow<Resource<Int>> = _unreadCount.asStateFlow()
 
+    /** Real-time total shopUnreadCount — drives the bottom nav badge. */
+    private val _totalShopUnreadCount = MutableStateFlow(0)
+    val totalShopUnreadCount: StateFlow<Int> = _totalShopUnreadCount.asStateFlow()
+
+    /** Set after a chat is soft-deleted; consumed by the UI to show Undo Snackbar. */
+    private val _deletedChat = MutableStateFlow<Chat?>(null)
+    val deletedChat: StateFlow<Chat?> = _deletedChat.asStateFlow()
+
     // ─────────────────────────────────────────────────────────────────────────
     // User info (populated once from session — see loadCurrentUser)
     // ─────────────────────────────────────────────────────────────────────────
@@ -85,15 +97,10 @@ class ChatViewModel @Inject constructor(
         loadCurrentUser()
     }
 
-    /**
-     * Reads user session ONCE using first() so we don't leave dangling collectors.
-     * All start-chat functions call ensureUserLoaded() before doing real work,
-     * so there is no race condition even if this coroutine hasn't finished yet.
-     */
     private fun loadCurrentUser() {
         viewModelScope.launch {
             try {
-                currentUserId = sessionManager.userId.first() ?: ""
+                currentUserId   = sessionManager.userId.first() ?: ""
                 currentUserRole = sessionManager.userRole.first() ?: ""
                 Log.d(TAG, "👤 Session loaded — userId=$currentUserId role=$currentUserRole")
             } catch (e: Exception) {
@@ -102,13 +109,9 @@ class ChatViewModel @Inject constructor(
         }
     }
 
-    /**
-     * Suspending helper that guarantees userId/role are available before
-     * any operation that needs them. Safe to call multiple times.
-     */
     private suspend fun ensureUserLoaded() {
         if (currentUserId.isBlank()) {
-            currentUserId = sessionManager.userId.first() ?: ""
+            currentUserId   = sessionManager.userId.first() ?: ""
             currentUserRole = sessionManager.userRole.first() ?: ""
             Log.d(TAG, "👤 ensureUserLoaded — userId=$currentUserId role=$currentUserRole")
         }
@@ -120,7 +123,7 @@ class ChatViewModel @Inject constructor(
 
     fun updateUserInfo(name: String, image: String) {
         Log.d(TAG, "👤 updateUserInfo() name=$name hasImage=${image.isNotBlank()}")
-        currentUserName = name
+        currentUserName  = name
         currentUserImage = image
     }
 
@@ -128,14 +131,11 @@ class ChatViewModel @Inject constructor(
     // Chat creation — customer side
     // ─────────────────────────────────────────────────────────────────────────
 
-    /**
-     * Opens (or reuses) a chat between the current user and a shop.
-     * Safe to call from recompositions — subsequent calls are ignored.
-     */
     fun startChatFromShop(
         shopId: String,
         shopName: String,
-        shopImage: String
+        shopImage: String,
+        serviceName: String = ""
     ) {
         if (isChatInitialized) {
             Log.d(TAG, "⚠️ startChatFromShop — already initialized, skipping")
@@ -143,33 +143,25 @@ class ChatViewModel @Inject constructor(
         }
         isChatInitialized = true
 
-        Log.d(TAG, "╔══════════════════════════════════════╗")
-        Log.d(TAG, "║ startChatFromShop                   ║")
-        Log.d(TAG, "║ shopId=$shopId                      ║")
-        Log.d(TAG, "╚══════════════════════════════════════╝")
-
         viewModelScope.launch {
             ensureUserLoaded()
-
             if (currentUserId.isBlank()) {
-                Log.e(TAG, "❌ User not logged in")
                 _createChatState.value = Resource.Error("User not logged in")
-                isChatInitialized = false   // allow retry
+                isChatInitialized = false
                 return@launch
             }
-
             val displayName = currentUserName.ifBlank { "Customer" }
-
             _createChatState.value = Resource.Loading
 
             chatRepository.getOrCreateChat(
-                userId = currentUserId,
-                shopId = shopId,
-                userName = displayName,
-                shopName = shopName,
+                userId           = currentUserId,
+                shopId           = shopId,
+                userName         = displayName,
+                shopName         = shopName,
                 userProfileImage = currentUserImage,
                 shopProfileImage = shopImage,
-                bookingId = "" // general shop chat — no specific booking
+                bookingId        = "",
+                serviceName      = serviceName
             ).collect { result ->
                 handleChatResult(result)
                 _createChatState.value = result
@@ -177,14 +169,12 @@ class ChatViewModel @Inject constructor(
         }
     }
 
-    /**
-     * Opens a chat tied to a specific booking and sends a system message once ready.
-     */
     fun startChatFromBooking(
         shopId: String,
         shopName: String,
         shopImage: String,
-        bookingId: String
+        bookingId: String,
+        serviceName: String = ""
     ) {
         if (isChatInitialized) {
             Log.d(TAG, "⚠️ startChatFromBooking — already initialized, skipping")
@@ -192,33 +182,25 @@ class ChatViewModel @Inject constructor(
         }
         isChatInitialized = true
 
-        Log.d(TAG, "╔══════════════════════════════════════╗")
-        Log.d(TAG, "║ startChatFromBooking                ║")
-        Log.d(TAG, "║ bookingId=$bookingId                ║")
-        Log.d(TAG, "╚══════════════════════════════════════╝")
-
         viewModelScope.launch {
             ensureUserLoaded()
-
             if (currentUserId.isBlank()) {
-                Log.e(TAG, "❌ User not logged in")
                 _createChatState.value = Resource.Error("User not logged in")
                 isChatInitialized = false
                 return@launch
             }
-
             val displayName = currentUserName.ifBlank { "Customer" }
-
             _createChatState.value = Resource.Loading
 
             chatRepository.getOrCreateChat(
-                userId = currentUserId,
-                shopId = shopId,
-                userName = displayName,
-                shopName = shopName,
+                userId           = currentUserId,
+                shopId           = shopId,
+                userName         = displayName,
+                shopName         = shopName,
                 userProfileImage = currentUserImage,
                 shopProfileImage = shopImage,
-                bookingId = bookingId // per-booking unique chat room
+                bookingId        = bookingId,
+                serviceName      = serviceName
             ).collect { result ->
                 handleChatResult(result)
                 _createChatState.value = result
@@ -226,9 +208,6 @@ class ChatViewModel @Inject constructor(
         }
     }
 
-    /**
-     * Shop-owner variant — initiates a chat on behalf of the shop with a customer.
-     */
     fun startChatAsShopOwner(
         shopId: String,
         shopName: String,
@@ -236,7 +215,8 @@ class ChatViewModel @Inject constructor(
         customerId: String,
         customerName: String,
         customerImage: String,
-        bookingId: String? = null
+        bookingId: String? = null,
+        serviceName: String = ""
     ) {
         if (isChatInitialized) {
             Log.d(TAG, "⚠️ startChatAsShopOwner — already initialized, skipping")
@@ -244,25 +224,19 @@ class ChatViewModel @Inject constructor(
         }
         isChatInitialized = true
 
-        Log.d(TAG, "╔══════════════════════════════════════╗")
-        Log.d(TAG, "║ startChatAsShopOwner                ║")
-        Log.d(TAG, "║ shop=$shopName customer=$customerName ║")
-        Log.d(TAG, "║ bookingId=${bookingId ?: "NONE"}     ║")
-        Log.d(TAG, "╚══════════════════════════════════════╝")
-
         viewModelScope.launch {
             ensureUserLoaded()
-
             _createChatState.value = Resource.Loading
 
             chatRepository.getOrCreateChat(
-                userId = customerId,
-                shopId = shopId,
-                userName = customerName,
-                shopName = shopName,
+                userId           = customerId,
+                shopId           = shopId,
+                userName         = customerName,
+                shopName         = shopName,
                 userProfileImage = customerImage,
                 shopProfileImage = shopImage,
-                bookingId = bookingId ?: ""
+                bookingId        = bookingId ?: "",
+                serviceName      = serviceName
             ).collect { result ->
                 handleChatResult(result)
                 _createChatState.value = result
@@ -270,7 +244,7 @@ class ChatViewModel @Inject constructor(
         }
     }
 
-    // Convenience alias kept for backward-compat with call sites that use startChat()
+    // Convenience alias kept for backward-compat
     fun startChat(
         shopId: String,
         shopName: String,
@@ -293,7 +267,6 @@ class ChatViewModel @Inject constructor(
             }
             is Resource.Error -> {
                 Log.e(TAG, "❌ Chat failed — ${result.message}")
-                // Allow retry on next call
                 isChatInitialized = false
             }
             is Resource.Loading -> Log.d(TAG, "⏳ Chat loading...")
@@ -305,10 +278,6 @@ class ChatViewModel @Inject constructor(
     // Messages
     // ─────────────────────────────────────────────────────────────────────────
 
-    /**
-     * Starts a real-time listener for messages in the given chat.
-     * Cancels any previous listener first so there is never more than one active.
-     */
     fun listenToMessages(chatId: String) {
         if (chatId.isBlank()) {
             Log.e(TAG, "❌ listenToMessages — chatId is blank")
@@ -316,13 +285,11 @@ class ChatViewModel @Inject constructor(
             return
         }
 
-        // Restore from cache immediately for instant UI
         if (cachedChat?.chatId == chatId && cachedMessages.isNotEmpty()) {
             Log.d(TAG, "🔄 Restoring ${cachedMessages.size} cached messages")
             _messagesState.value = Resource.Success(cachedMessages)
         }
 
-        // Cancel any existing listener before starting a new one
         messageListenerJob?.cancel()
         Log.d(TAG, "👂 Starting message listener for chatId=$chatId")
 
@@ -351,30 +318,29 @@ class ChatViewModel @Inject constructor(
             return
         }
 
-        // Prefer live value, fall back to cache
         val chat = _currentChat.value ?: cachedChat?.also {
             Log.d(TAG, "🔄 sendMessage — restoring chat from cache: ${it.chatId}")
             _currentChat.value = it
         }
 
         if (chat == null) {
-            Log.e(TAG, "❌ sendMessage — no active chat. Call startChat* first.")
+            Log.e(TAG, "❌ sendMessage — no active chat")
             return
         }
 
         val message = Message(
-            chatId = chat.chatId,
-            senderId = currentUserId,
+            chatId     = chat.chatId,
+            senderId   = currentUserId,
             senderType = currentUserRole,
             senderName = currentUserName.ifBlank {
                 when (currentUserRole) {
-                    "customer" -> "Customer"
+                    "customer"   -> "Customer"
                     "shop_owner" -> "Shop Owner"
-                    else -> "User"
+                    else         -> "User"
                 }
             },
-            text = text,
-            timeSent = com.google.firebase.Timestamp.now()
+            text      = text,
+            timeSent  = com.google.firebase.Timestamp.now()
         )
 
         Log.d(TAG, "📤 Sending message to chatId=${chat.chatId}")
@@ -387,29 +353,13 @@ class ChatViewModel @Inject constructor(
         }
     }
 
-    private fun sendSystemMessage(chatId: String, text: String) {
-        val msg = Message(
-            chatId = chatId,
-            senderId = currentUserId,
-            senderType = "system",
-            senderName = "System",
-            text = text,
-            timeSent = com.google.firebase.Timestamp.now()
-        )
-        viewModelScope.launch {
-            chatRepository.sendMessage(chatId, msg).collect {
-                Log.d(TAG, "   system message result: ${it::class.simpleName}")
-            }
-        }
-    }
-
     // ─────────────────────────────────────────────────────────────────────────
     // Chat list
     // ─────────────────────────────────────────────────────────────────────────
 
     fun loadUserChats() {
         viewModelScope.launch {
-            ensureUserLoaded()   // wait for async init before checking
+            ensureUserLoaded()
             if (currentUserId.isBlank()) {
                 Log.e(TAG, "❌ loadUserChats — userId blank even after ensureUserLoaded")
                 _chatsState.value = Resource.Error("User not authenticated")
@@ -427,11 +377,8 @@ class ChatViewModel @Inject constructor(
             Log.e(TAG, "❌ loadShopChats — shopId is blank")
             return
         }
-        // Idempotency guard: skip if already actively listening to the same shopId.
-        // Without this, both NavGraph and Screen calling loadShopChats causes
-        // the Success→Loading→Success loop (each call cancels the previous listener).
         if (shopId == currentlyListeningShopId && shopChatsJob?.isActive == true) {
-            Log.d(TAG, "⏭️ loadShopChats — already listening to $shopId, skipping duplicate call")
+            Log.d(TAG, "⏭️ loadShopChats — already listening to $shopId, skipping")
             return
         }
         currentlyListeningShopId = shopId
@@ -439,16 +386,100 @@ class ChatViewModel @Inject constructor(
         shopChatsJob?.cancel()
         shopChatsJob = viewModelScope.launch {
             ensureUserLoaded()
-            chatRepository.listenToShopChats(shopId).collect {
-                Log.d(TAG, "📋 loadShopChats emission: ${it::class.simpleName}")
-                _chatsState.value = it
+            chatRepository.listenToShopChats(shopId).collect { result ->
+                Log.d(TAG, "📋 loadShopChats emission: ${result::class.simpleName}")
+                val deduped = if (result is Resource.Success) {
+                    Resource.Success(result.data.distinctBy { it.chatId })
+                } else result
+                _chatsState.value = deduped
+            }
+            currentlyListeningShopId = ""
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Total shop unread (for bottom nav badge)
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /**
+     * Starts a real-time listener for total shopUnreadCount. Call this once
+     * when the ShopOwnerHomeScreen becomes visible, passing the resolved shopId.
+     * Idempotent — does nothing if already listening to the same shopId.
+     */
+    fun listenToShopTotalUnread(shopId: String) {
+        if (shopId.isBlank()) return
+        if (shopId == totalUnreadShopId && shopTotalUnreadJob?.isActive == true) return
+
+        totalUnreadShopId   = shopId
+        shopTotalUnreadJob?.cancel()
+        shopTotalUnreadJob = viewModelScope.launch {
+            chatRepository.listenToShopTotalUnread(shopId).collect { result ->
+                if (result is Resource.Success) {
+                    _totalShopUnreadCount.value = result.data
+                }
+            }
+        }
+        Log.d(TAG, "🔔 listenToShopTotalUnread started for shopId=$shopId")
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Soft-delete
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /**
+     * Soft-deletes a chat for the shop owner.
+     * Stores the deleted chat in [deletedChat] so the UI can offer Undo.
+     */
+    fun deleteChatForShop(chat: Chat) {
+        _deletedChat.value = chat
+        viewModelScope.launch {
+            chatRepository.deleteChatForShop(chat.chatId).collect {
+                Log.d(TAG, "🗑️ deleteChatForShop result: ${it::class.simpleName}")
             }
         }
     }
 
+    /**
+     * Soft-deletes a chat for the customer.
+     * Stores the deleted chat in [deletedChat] so the UI can offer Undo.
+     */
+    fun deleteChatForCustomer(chat: Chat) {
+        _deletedChat.value = chat
+        viewModelScope.launch {
+            chatRepository.deleteChatForCustomer(chat.chatId).collect {
+                Log.d(TAG, "🗑️ deleteChatForCustomer result: ${it::class.simpleName}")
+            }
+        }
+    }
+
+    /** Undoes the last shop soft-delete (called from Snackbar Undo button). */
+    fun undoDeleteForShop() {
+        val chat = _deletedChat.value ?: return
+        _deletedChat.value = null
+        viewModelScope.launch {
+            chatRepository.undoDeleteChatForShop(chat.chatId).collect {
+                Log.d(TAG, "↩️ undoDeleteForShop result: ${it::class.simpleName}")
+            }
+        }
+    }
+
+    /** Undoes the last customer soft-delete. */
+    fun undoDeleteForCustomer() {
+        val chat = _deletedChat.value ?: return
+        _deletedChat.value = null
+        viewModelScope.launch {
+            chatRepository.undoDeleteChatForCustomer(chat.chatId).collect {
+                Log.d(TAG, "↩️ undoDeleteForCustomer result: ${it::class.simpleName}")
+            }
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Unread count (one-shot)
+    // ─────────────────────────────────────────────────────────────────────────
+
     fun loadUnreadCount() {
         if (currentUserId.isBlank()) return
-        Log.d(TAG, "📊 loadUnreadCount userId=$currentUserId role=$currentUserRole")
         viewModelScope.launch {
             val flow = if (currentUserRole == "shop_owner") {
                 chatRepository.getShopUnreadCount(currentUserId)
@@ -466,19 +497,23 @@ class ChatViewModel @Inject constructor(
     fun markAsRead(chatId: String) {
         if (chatId.isBlank() || currentUserId.isBlank()) return
         viewModelScope.launch {
-            chatRepository.markMessagesAsRead(chatId, currentUserId).collect {}
+            chatRepository.markMessagesAsRead(chatId, currentUserId, currentUserRole).collect {}
         }
     }
 
     /**
-     * Directly sets a chat (e.g. when navigating from a chat list).
-     * Starts message listener automatically.
+     * Pre-seeds the current chat from the list screen so the UI can show the
+     * top-bar name immediately while the real startChatAs* call completes.
+     *
+     * IMPORTANT: Do NOT set isChatInitialized = true here.
+     * ShopChatScreen calls startChatAsShopOwner() in its own LaunchedEffect,
+     * which must be allowed to run so Firestore confirms the correct chatId.
      */
     fun setCurrentChat(chat: Chat) {
-        Log.d(TAG, "📌 setCurrentChat chatId=${chat.chatId}")
+        Log.d(TAG, "📌 setCurrentChat chatId=${chat.chatId} (pre-seeding only)")
         cachedChat = chat
         _currentChat.value = chat
-        isChatInitialized = true
+        // NOTE: isChatInitialized intentionally NOT set
         listenToMessages(chat.chatId)
     }
 
@@ -490,19 +525,18 @@ class ChatViewModel @Inject constructor(
         Log.d(TAG, "🔄 resetChatStates() — clearing per-conversation state only")
         messageListenerJob?.cancel()
         messageListenerJob = null
-        isChatInitialized = false
-        // NOTE: _chatsState is NOT reset here — the chat list should survive
-        // navigation back from an individual chat screen.
-        _messagesState.value = Resource.Idle
-        _currentChat.value = null
+        isChatInitialized  = false
+        _messagesState.value    = Resource.Idle
+        _currentChat.value      = null
         _sendMessageState.value = Resource.Idle
-        _createChatState.value = Resource.Idle
-        _unreadCount.value = Resource.Idle
+        _createChatState.value  = Resource.Idle
+        _unreadCount.value      = Resource.Idle
     }
 
     override fun onCleared() {
         Log.d(TAG, "💀 ChatViewModel onCleared — cachedChat=${cachedChat?.chatId}")
         messageListenerJob?.cancel()
+        shopTotalUnreadJob?.cancel()
         super.onCleared()
     }
 }

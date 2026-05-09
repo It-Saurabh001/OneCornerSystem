@@ -145,9 +145,13 @@ fun ShopChatScreen(
 // ============= TOP BAR =============
 @Composable
 private fun TopBar(currentChat: Chat?, fallbackName: String, navController: NavController) {
+    val displayName    = currentChat?.userName ?: fallbackName
+    val serviceName    = currentChat?.serviceName ?: ""
+    val profileImage   = currentChat?.userProfileImage ?: ""
+
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        color = ChatColors.DeepBlack.copy(alpha = 0.9f)
+        color    = ChatColors.DeepBlack.copy(alpha = 0.9f)
     ) {
         Row(
             modifier = Modifier
@@ -160,9 +164,7 @@ private fun TopBar(currentChat: Chat?, fallbackName: String, navController: NavC
                 Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back", tint = ChatColors.TextWhite)
             }
 
-            val displayName = currentChat?.userName ?: fallbackName
-
-            // Avatar
+            // Avatar — show profile image if available, else initial
             Box(
                 modifier = Modifier
                     .size(40.dp)
@@ -170,25 +172,44 @@ private fun TopBar(currentChat: Chat?, fallbackName: String, navController: NavC
                     .background(ChatColors.AmberOrange.copy(alpha = 0.15f)),
                 contentAlignment = Alignment.Center
             ) {
-                Text(
-                    text = displayName.take(1).uppercase(),
-                    color = ChatColors.AmberOrange,
-                    fontWeight = FontWeight.Black,
-                    fontSize = 18.sp
-                )
+                if (profileImage.isNotBlank()) {
+                    com.saurabh.onecornersystem.presentation.components.Base64Image(
+                        imageSource       = profileImage,
+                        contentDescription = displayName,
+                        modifier          = Modifier.fillMaxSize()
+                    )
+                } else {
+                    Text(
+                        text       = displayName.take(1).uppercase(),
+                        color      = ChatColors.AmberOrange,
+                        fontWeight = FontWeight.Black,
+                        fontSize   = 18.sp
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.width(10.dp))
 
-            // Name & Status
+            // Name & service name
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = displayName,
-                    color = ChatColors.TextWhite,
+                    text       = displayName,
+                    color      = ChatColors.TextWhite,
                     fontWeight = FontWeight.Black,
-                    fontSize = 16.sp
+                    fontSize   = 16.sp,
+                    maxLines   = 1
                 )
-                Text("Online", color = ChatColors.TextGray, fontSize = 11.sp)
+                if (serviceName.isNotBlank()) {
+                    Text(
+                        text       = serviceName,
+                        color      = ChatColors.AmberOrange.copy(alpha = 0.8f),
+                        fontSize   = 11.sp,
+                        fontStyle  = androidx.compose.ui.text.font.FontStyle.Italic,
+                        maxLines   = 1
+                    )
+                } else {
+                    Text("Online", color = ChatColors.TextGray, fontSize = 11.sp)
+                }
             }
         }
     }
